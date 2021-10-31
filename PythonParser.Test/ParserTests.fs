@@ -79,3 +79,52 @@ let ParseArgWithTupleTests () =
                  }
             ]
         }, result)
+
+[<Test>]
+let ParseClass () =
+    let source = "class MyClass:
+    def __init__(self, arg: int)
+    def next_method(self, arg1: string, arg2: string)
+"
+    let result, _ = parseClass(source.Split("\n"), 0)
+
+    Assert.AreEqual(
+        {            
+            ClassDef.Name = "MyClass";
+            Inherits = []
+            Funcs = 
+            [
+                {
+                    FunctionDef.Name = "__init__";
+                    Type = SimpleType ""
+                    Args = [
+                        {
+                            Argument.Name = "self";
+                            Type = SimpleType ""
+                         };
+                         {
+                             Argument.Name = "arg";
+                             Type = SimpleType "int"
+                         }
+                    ]
+                };
+                {
+                    FunctionDef.Name = "next_method";
+                    Type = SimpleType ""
+                    Args = [
+                         {
+                            Argument.Name = "self";
+                            Type = SimpleType ""
+                         };
+                         {
+                             Argument.Name = "arg1";
+                             Type = SimpleType "string"
+                         };
+                         {
+                             Argument.Name = "arg2";
+                             Type = SimpleType "string"
+                         }
+                    ]
+                }
+            ]
+        }, result)
