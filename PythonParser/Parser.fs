@@ -115,7 +115,7 @@ module Parser =
             |> trim 
         
         match withoutClass.Split([| '('; ')'; ':' |]) with
-        | [| name; inheritList; _ |] -> name, inheritList.Split(",") |> Seq.toList
+        | [| name; inheritList; _ ; _|] -> name, inheritList.Split(",") |> Seq.toList
         | [| name; _ |] -> name, []
 
     let rec getClassFuncs(lines: string[], currIndex: int) : (FunctionDef list * int) =
