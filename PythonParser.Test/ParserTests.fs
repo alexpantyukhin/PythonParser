@@ -14,12 +14,7 @@ let ParseSingleArgTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
-            Args = [
-                {
-                    Argument.Name = "arg1";
-                    Type = SimpleType "string"
-                }
-            ]
+            Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" }]
         }, result)
 
 [<Test>]
@@ -29,16 +24,8 @@ let ParseManyArgsTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
-            Args = [
-                {
-                    Argument.Name = "arg1";
-                    Type = SimpleType "string"
-                };
-                {
-                    Argument.Name = "arg2";
-                    Type = SimpleType "int"
-                }
-            ]
+            Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
+                    { Argument.Name = "arg2"; Type = SimpleType "int" }]
         }, result)
 
 
@@ -49,16 +36,8 @@ let ParseArgWithEnumTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
-            Args = [
-                {
-                    Argument.Name = "arg1";
-                    Type = OrType [ SimpleType "string"; SimpleType "int" ]
-                 };
-                 {
-                     Argument.Name = "arg2";
-                     Type = SimpleType "int"
-                 }
-            ]
+            Args = [{ Argument.Name = "arg1"; Type = OrType [ SimpleType "string"; SimpleType "int" ] };
+                    { Argument.Name = "arg2"; Type = SimpleType "int" }]
         }, result)
     
 [<Test>]
@@ -68,16 +47,8 @@ let ParseArgWithTupleTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
-            Args = [
-                {
-                    Argument.Name = "arg1";
-                    Type = CompositionType ("tuple", [ SimpleType "int"; SimpleType "string" ])
-                 };
-                 {
-                     Argument.Name = "arg2";
-                     Type = SimpleType "int"
-                 }
-            ]
+            Args = [{ Argument.Name = "arg1"; Type = CompositionType ("tuple", [ SimpleType "int"; SimpleType "string" ])};
+                    { Argument.Name = "arg2"; Type = SimpleType "int" }]
         }, result)
 
 [<Test>]
@@ -97,34 +68,15 @@ let ParseClass () =
                 {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType ""
-                    Args = [
-                        {
-                            Argument.Name = "self";
-                            Type = SimpleType ""
-                         };
-                         {
-                             Argument.Name = "arg";
-                             Type = SimpleType "int"
-                         }
-                    ]
+                    Args = [{ Argument.Name = "self"; Type = SimpleType ""} ;
+                            { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
                 {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType ""
-                    Args = [
-                         {
-                            Argument.Name = "self";
-                            Type = SimpleType ""
-                         };
-                         {
-                             Argument.Name = "arg1";
-                             Type = SimpleType "string"
-                         };
-                         {
-                             Argument.Name = "arg2";
-                             Type = SimpleType "string"
-                         }
-                    ]
+                    Args = [{ Argument.Name = "self"; Type = SimpleType "" };
+                            { Argument.Name = "arg1"; Type = SimpleType "string"};
+                            { Argument.Name = "arg2"; Type = SimpleType "string" }]
                 }
             ]
         }, result)
@@ -148,34 +100,16 @@ let ParseClassWithInherits () =
                 {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType "None"
-                    Args = [
-                        {
-                            Argument.Name = "self";
-                            Type = SimpleType ""
-                         };
-                         {
-                             Argument.Name = "arg";
-                             Type = SimpleType "int"
-                         }
-                    ]
+                    Args = [ { Argument.Name = "self"; Type = SimpleType "" };
+                             { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
                 {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType "int"
                     Args = [
-                         {
-                            Argument.Name = "self";
-                            Type = SimpleType ""
-                         };
-                         {
-                             Argument.Name = "arg1";
-                             Type = SimpleType "string"
-                         };
-                         {
-                             Argument.Name = "arg2";
-                             Type = SimpleType "string"
-                         }
-                    ]
+                         { Argument.Name = "self"; Type = SimpleType "" };
+                         { Argument.Name = "arg1"; Type = SimpleType "string" };
+                         { Argument.Name = "arg2"; Type = SimpleType "string" }]
                 }
             ]
         }, result)
@@ -191,46 +125,44 @@ class MyClass(Basic):
 
     def next_method(self, arg1: string, arg2: string) -> int
 
+MyVar: tuple[int, string]
+
 """
     let result = parseModule(source)
 
     Assert.AreEqual(
-        {            
-            ClassDef.Name = "MyClass";
-            Inherits = [ "Basic" ]
-            Funcs = 
-            [
-                {
-                    FunctionDef.Name = "__init__";
-                    Type = SimpleType "None"
-                    Args = [
-                        {
-                            Argument.Name = "self";
-                            Type = SimpleType ""
-                         };
-                         {
-                             Argument.Name = "arg";
-                             Type = SimpleType "int"
-                         }
-                    ]
+        {
+            Module.Items = [
+                ModuleItem.FunctionDef {
+                    FunctionDef.Name = "func";
+                    Type = SimpleType "float"
+                    Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
+                            { Argument.Name = "arg2"; Type = SimpleType "int"}]
                 };
-                {
-                    FunctionDef.Name = "next_method";
-                    Type = SimpleType "int"
-                    Args = [
-                         {
-                            Argument.Name = "self";
-                            Type = SimpleType ""
-                         };
-                         {
-                             Argument.Name = "arg1";
-                             Type = SimpleType "string"
-                         };
-                         {
-                             Argument.Name = "arg2";
-                             Type = SimpleType "string"
-                         }
+                ModuleItem.ClassDef {            
+                    ClassDef.Name = "MyClass";
+                    Inherits = [ "Basic" ]
+                    Funcs = 
+                    [
+                        {
+                            FunctionDef.Name = "__init__";
+                            Type = SimpleType "None"
+                            Args = [{ Argument.Name = "self"; Type = SimpleType "" };
+                                    { Argument.Name = "arg"; Type = SimpleType "int"}]
+                        };
+                        {
+                            FunctionDef.Name = "next_method";
+                            Type = SimpleType "int"
+                            Args = [{ Argument.Name = "self"; Type = SimpleType "" };
+                                    { Argument.Name = "arg1"; Type = SimpleType "string" };
+                                    { Argument.Name = "arg2"; Type = SimpleType "string" }]
+                        }
                     ]
                 }
+                ModuleItem.VariableDef {
+                    VariableDef.Name = "MyVar"
+                    Type = CompositionType ("tuple", [ SimpleType "int"; SimpleType "string" ])
+                }
             ]
-        }, result)
+        }
+        , result)

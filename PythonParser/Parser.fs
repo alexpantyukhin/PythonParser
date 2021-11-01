@@ -116,6 +116,17 @@ module Parser =
             Type = parseTypePart(funPartType);
         }
 
+    let parseFuncDefinition(lines: string[], currIndex: int): FunctionDef * int  = 
+        let line = lines.[currIndex]
+        let funcDef =
+            line
+            |> trim
+            |> (fun x -> x.Substring("def".Length))
+            |> trim
+            |> parseFunc
+        
+        (funcDef, currIndex + 1)
+
     let parseClassDefinition (classHead: string) : (string * string list) =
         let withoutClass = 
             classHead 
@@ -156,7 +167,7 @@ module Parser =
         
     let parseVariable (lines: string[], currIndex: int) : VariableDef * int =
         let line = lines.[currIndex]
-        match line.Split([| ':'; ']' |]) with
+        match line.Split([| ':' |]) with
         | [| name; typeStr  |] -> {VariableDef.Name = name.Trim(); Type = parseType(typeStr)} , currIndex + 1
 
     let rec parseModuleItems (lines: string[], currIndex: int ): ModuleItem list * int =
@@ -173,8 +184,8 @@ module Parser =
                     let moduleItems, index = parseModuleItems(lines, classIndex)
                     [ ModuleItem.ClassDef classDef ] @ moduleItems, index
                 else if line.StartsWith("def") then
-                    let func = parseFunc(line)
-                    let moduleItems, index = parseModuleItems(lines, currIndex + 1)
+                    let func, funcIndex = parseFuncDefinition(lines, currIndex)
+                    let moduleItems, index = parseModuleItems(lines, funcIndex)
                     [ ModuleItem.FunctionDef func] @ moduleItems, index
                 else
                     let variableDef, nextIndex = parseVariable(lines, currIndex)
