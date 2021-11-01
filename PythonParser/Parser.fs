@@ -49,26 +49,43 @@ module Parser =
 
     let trim (str: string) =
         str.Trim()
+        
+    let rec firstOrSeparatorPosition(str: string, currIndex: int, bracketNumber: int): int = 
+        if currIndex >= str.Length then
+            str.Length
+        else
+            match str.[currIndex] with
+            | ']' -> firstOrSeparatorPosition (str, currIndex + 1, bracketNumber - 1)
+            | '[' -> firstOrSeparatorPosition (str, currIndex + 1, bracketNumber + 1)
+            | '|' when bracketNumber = 0 -> currIndex
+            | _ -> firstOrSeparatorPosition (str, currIndex + 1, bracketNumber)
 
     let rec parseType (typeString: string) : Type =
-        match typeString.Split([| '['; ']' |]) with
-        | [| mainName; innerTypes; _|] ->
-            CompositionType
-                (mainName.Trim(),
-                innerTypes.Split(",")
-                 |> Seq.toList
-                 |> List.map trim
-                 |> List.map parseType)
-        | _ ->
-            match typeString.Split([| '|' |]) with
-            | lst when lst.Length > 1 ->
-                OrType
-                 (lst
-                 |> Seq.toList
-                 |> List.map trim
-                 |> List.map parseType)
+        let orSeparatorPosition = firstOrSeparatorPosition (typeString, 0, 0)
+        if orSeparatorPosition = typeString.Length then
+            match typeString.Split([| '['; ']' |]) with
+            | [| mainName; innerTypes; _|] | [| mainName; innerTypes;|]->
+                CompositionType
+                    (mainName.Trim(),
+                    innerTypes.Split(",")
+                     |> Seq.toList
+                     |> List.map trim
+                     |> List.map parseType)
+            | _ -> SimpleType (typeString |> trim)
+        else
+            let headType =
+                typeString
+                |> trim
+                |> (fun x -> x.Substring(0, orSeparatorPosition))
+                |> parseType
 
-            | _ -> SimpleType typeString
+            let tailType =
+                typeString
+                |> trim
+                |> (fun x -> x.Substring(orSeparatorPosition + 1))
+                |> parseType
+                
+            OrType ([headType] @ [ tailType ])
 
     let parseTypePart (funPartType: string) : Type =
         let trimmed = funPartType |> trim
@@ -77,7 +94,6 @@ module Parser =
             SimpleType ""
         else
             trimmed 
-            |> (fun x -> x.Substring("->".Length))
             |> trim
             |> (fun x -> x.Split(":").[0])
             |> trim
@@ -113,25 +129,43 @@ module Parser =
             |> (fun x -> x.Substring(position + 1))
             |> trim
             |> parseArgs)
+            
+    let rec gatherArgs(lines: string[], currIndex: int, startIndex: int) : string * int =
+        let line =
+            if currIndex = startIndex then
+                lines.[currIndex].Substring(lines.[currIndex].IndexOf("(") + 1)
+            else
+                lines.[currIndex]
+                
+        if line.Contains(")") then
+            (line
+            |> (fun x -> x.Substring(0, line.IndexOf(")")))
+            |> trim), currIndex
+        else
+             let gathered, index = gatherArgs(lines, currIndex + 1, startIndex)
+             line + gathered, index
 
-    let parseFunc (funcSignature : string) : FunctionDef =
-        match funcSignature.Split([| '('; ')' |]) with
-        | [| name; argsPart; funPartType |] -> {
-            FunctionDef.Name = name.Trim()
-            Args = parseArgs(argsPart)
-            Type = parseTypePart(funPartType);
-        }
+    let parseFunc (lines: string[], currIndex: int) : FunctionDef * int =
+        let collected_args, index = gatherArgs(lines, currIndex, currIndex)
+        let line = lines.[currIndex]
+
+        match line.Split([| '(' |]) with
+        | [| name; _ |] ->
+            match lines.[index].Split("->") with
+            | [| _; funPartType |] ->
+                let nameFunc = name
+                                |> trim
+                                |> (fun x -> x.Substring("def".Length))
+                                |> trim
+
+                {
+                    FunctionDef.Name = nameFunc
+                    Args = parseArgs(collected_args)
+                    Type = parseTypePart(funPartType);
+                }, index + 1
 
     let parseFuncDefinition(lines: string[], currIndex: int): FunctionDef * int  = 
-        let line = lines.[currIndex]
-        let funcDef =
-            line
-            |> trim
-            |> (fun x -> x.Substring("def".Length))
-            |> trim
-            |> parseFunc
-        
-        (funcDef, currIndex + 1)
+        parseFunc(lines, currIndex)
 
     let parseClassDefinition (classHead: string) : (string * string list) =
         let withoutClass = 
@@ -139,7 +173,7 @@ module Parser =
             |> trim 
             |> (fun x -> x.Substring("class".Length))
             |> trim 
-        
+
         match withoutClass.Split([| '('; ')'; ':' |]) with
         | [| name; inheritList; _ ; _|] -> name, inheritList.Split(",") |> Seq.toList
         | [| name; _ |] -> name, []
