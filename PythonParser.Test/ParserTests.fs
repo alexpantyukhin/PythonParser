@@ -9,7 +9,7 @@ let Setup () =
 
 [<Test>]
 let ParseSingleArgTests () =
-    let result = parseFunc("func(arg1: string) -> float")
+    let result = parseFunc("func(arg1: string) -> float: ...")
     Assert.AreEqual(
         {
             FunctionDef.Name = "func";
@@ -19,7 +19,7 @@ let ParseSingleArgTests () =
 
 [<Test>]
 let ParseManyArgsTests () =
-    let result = parseFunc("func ( arg1: string , arg2: int ) -> float")
+    let result = parseFunc("func ( arg1: string , arg2: int ) -> float: ...")
     Assert.AreEqual(
         {
             FunctionDef.Name = "func";
@@ -31,7 +31,7 @@ let ParseManyArgsTests () =
 
 [<Test>]
 let ParseArgWithEnumTests () =
-    let result = parseFunc("func ( arg1: string | int, arg2: int ) -> float")
+    let result = parseFunc("func ( arg1: string | int, arg2: int ) -> float : ...")
     Assert.AreEqual(
         {
             FunctionDef.Name = "func";
@@ -42,7 +42,7 @@ let ParseArgWithEnumTests () =
     
 [<Test>]
 let ParseArgWithTupleTests () =
-    let result = parseFunc("func ( arg1: tuple[int, string], arg2: int ) -> float")
+    let result = parseFunc("func ( arg1: tuple[int, string], arg2: int ) -> float : ...")
     Assert.AreEqual(
         {
             FunctionDef.Name = "func";
@@ -54,8 +54,8 @@ let ParseArgWithTupleTests () =
 [<Test>]
 let ParseClass () =
     let source = "class MyClass:
-    def __init__(self, arg: int)
-    def next_method(self, arg1: string, arg2: string)
+    def __init__(self, arg: int) -> None: ...
+    def next_method(self, arg1: string, arg2: string) -> None: ...
 "
     let result, _ = parseClass(source.Split("\n"), 0)
 
@@ -63,17 +63,17 @@ let ParseClass () =
         {            
             ClassDef.Name = "MyClass";
             Inherits = []
-            Funcs = 
+            Items = 
             [
-                {
+                ClassItem.FunctionDef {
                     FunctionDef.Name = "__init__";
-                    Type = SimpleType ""
+                    Type = SimpleType "None"
                     Args = [{ Argument.Name = "self"; Type = SimpleType ""} ;
                             { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
-                {
+                ClassItem.FunctionDef {
                     FunctionDef.Name = "next_method";
-                    Type = SimpleType ""
+                    Type = SimpleType "None"
                     Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                             { Argument.Name = "arg1"; Type = SimpleType "string"};
                             { Argument.Name = "arg2"; Type = SimpleType "string" }]
@@ -84,9 +84,9 @@ let ParseClass () =
 [<Test>]
 let ParseClassWithInherits () =
     let source ="""class MyClass(Basic):
-    def __init__(self, arg: int) -> None
+    def __init__(self, arg: int) -> None: ...
 
-    def next_method(self, arg1: string, arg2: string) -> int
+    def next_method(self, arg1: string, arg2: string) -> int: ...
 
 """
     let result, _ = parseClass(source.Split("\n"), 0)
@@ -95,15 +95,15 @@ let ParseClassWithInherits () =
         {            
             ClassDef.Name = "MyClass";
             Inherits = [ "Basic" ]
-            Funcs = 
+            Items = 
             [
-                {
+                ClassItem.FunctionDef {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType "None"
                     Args = [ { Argument.Name = "self"; Type = SimpleType "" };
                              { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
-                {
+                ClassItem.FunctionDef {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType "int"
                     Args = [
@@ -118,12 +118,12 @@ let ParseClassWithInherits () =
 [<Test>]
 let ParseModule () =
     let source ="""
-def func(arg1: string, arg2: int) -> float
+def func(arg1: string, arg2: int) -> float: ...
 
 class MyClass(Basic):
-    def __init__(self, arg: int) -> None
+    def __init__(self, arg: int) -> None: ...
 
-    def next_method(self, arg1: string, arg2: string) -> int
+    def next_method(self, arg1: string, arg2: string) -> int: ...
 
 MyVar: tuple[int, string]
 
@@ -142,15 +142,15 @@ MyVar: tuple[int, string]
                 ModuleItem.ClassDef {            
                     ClassDef.Name = "MyClass";
                     Inherits = [ "Basic" ]
-                    Funcs = 
+                    Items = 
                     [
-                        {
+                        ClassItem.FunctionDef {
                             FunctionDef.Name = "__init__";
                             Type = SimpleType "None"
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                                     { Argument.Name = "arg"; Type = SimpleType "int"}]
                         };
-                        {
+                        ClassItem.FunctionDef {
                             FunctionDef.Name = "next_method";
                             Type = SimpleType "int"
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
