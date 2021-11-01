@@ -20,6 +20,12 @@ module Parser =
             Args: Argument list
             Type: Type
         }
+        
+    type VariableDef =
+        {
+            Name: string
+            Type: Type
+        }
 
     type ClassDef = 
         {
@@ -29,10 +35,13 @@ module Parser =
         }
 
     type ModuleItem =
-    | FunctionDef
-    | ClassDef
+    | FunctionDef of FunctionDef  
+    | ClassDef of ClassDef 
+    | VariableDef of VariableDef
 
-    type Module = ModuleItem list
+    type Module = {
+        Items: ModuleItem list 
+    } 
 
     let trim (str: string) =
         str.Trim()
@@ -118,30 +127,61 @@ module Parser =
         | [| name; inheritList; _ ; _|] -> name, inheritList.Split(",") |> Seq.toList
         | [| name; _ |] -> name, []
 
-    let rec getClassFuncs(lines: string[], currIndex: int) : (FunctionDef list * int) =
+    let rec getClassFuncs(lines: string[], currIndex: int) : FunctionDef list * int =
         if currIndex = lines.Length then 
             [], currIndex
         else
-            let line = lines.[currIndex] 
+            let line = lines.[currIndex]
 
-            if ( line.Trim().Length = 0) ||  not (line.StartsWith("  ")) && not (line.StartsWith(" ")) then
-                [], currIndex
+            if ( line.Trim().Length = 0) then
+                getClassFuncs(lines, currIndex + 1)
             else
-                let func = 
-                    line
-                    |> trim
-                    |> (fun x -> x.Substring("def".Length))
-                    |> trim
-                    |> parseFunc
+                if not (line.StartsWith("  ")) && not (line.StartsWith(" ")) then
+                    [], currIndex
+                else
+                    let func = 
+                        line
+                        |> trim
+                        |> (fun x -> x.Substring("def".Length))
+                        |> trim
+                        |> parseFunc
 
-                let funcs, index = getClassFuncs(lines, currIndex + 1)
-                [func] @ funcs, index
+                    let funcs, index = getClassFuncs(lines, currIndex + 1)
+                    [func] @ funcs, index
 
     let parseClass (lines: string[], currIndex: int): ClassDef * int = 
-        let (name, inherits) = parseClassDefinition(lines.[currIndex])
-
+        let name, inherits = parseClassDefinition(lines.[currIndex])
         let classItems, index = getClassFuncs(lines, currIndex + 1)
-        ({ClassDef.Name = name; Inherits = inherits; Funcs = classItems}) , index
+        { ClassDef.Name = name; Inherits = inherits; Funcs = classItems } , index
+        
+    let parseVariable (lines: string[], currIndex: int) : VariableDef * int =
+        let line = lines.[currIndex]
+        match line.Split([| ':'; ']' |]) with
+        | [| name; typeStr  |] -> {VariableDef.Name = name.Trim(); Type = parseType(typeStr)} , currIndex + 1
 
-    // let parseModule (source: string) : Module = 
-    //     [ ({ModuleItem.ClassDef.Name = "Hello"; Inherits = []; Funcs=[]})]
+    let rec parseModuleItems (lines: string[], currIndex: int ): ModuleItem list * int =
+        if currIndex = lines.Length then
+            [], currIndex
+        else
+            let line = lines.[currIndex]
+
+            if ( line.Trim().Length = 0) then
+                parseModuleItems(lines, currIndex + 1)
+            else
+                if line.StartsWith("class") then
+                    let classDef, classIndex = parseClass(lines, currIndex)
+                    let moduleItems, index = parseModuleItems(lines, classIndex)
+                    [ ModuleItem.ClassDef classDef ] @ moduleItems, index
+                else if line.StartsWith("def") then
+                    let func = parseFunc(line)
+                    let moduleItems, index = parseModuleItems(lines, currIndex + 1)
+                    [ ModuleItem.FunctionDef func] @ moduleItems, index
+                else
+                    let variableDef, nextIndex = parseVariable(lines, currIndex)
+                    let moudleItems, index = parseModuleItems(lines, nextIndex)
+                    [ ModuleItem.VariableDef variableDef ] @ moudleItems, index
+    
+    let parseModule (source: string) : Module =
+        let lines = source.Split("\n")
+        let items, _ = parseModuleItems(lines, 0)
+        {Module.Items = items}
