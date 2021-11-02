@@ -3,6 +3,17 @@ namespace PythonParser
 
 module Parser =
 
+    [<Literal>]
+    let DEF = "def"
+
+    [<Literal>]
+    let CLASS = "class"
+
+    [<Literal>]
+    let IF = "if"
+
+    let identation = "    "
+
     type Type =
     | SimpleType of string
     | OrType of Type list
@@ -37,11 +48,18 @@ module Parser =
             Inherits: string list
             Items: ClassItem list
         }
+        
+    type IfDef = {
+        Condition: string
+        ThenItems: ModuleItem list
+        ElseItems: ModuleItem list
+    }
 
-    type ModuleItem =
+    and ModuleItem =
     | FunctionDef of FunctionDef  
     | ClassDef of ClassDef 
     | VariableDef of VariableDef
+    | IfDef of IfDef
 
     type Module = {
         Items: ModuleItem list 
@@ -49,6 +67,9 @@ module Parser =
 
     let trim (str: string) =
         str.Trim()
+        
+    let cutLeft (length: int) (str: string): string =
+        str.Substring(length)
         
     let rec firstOrSeparatorPosition(str: string, currIndex: int, bracketNumber: int): int = 
         if currIndex >= str.Length then
@@ -82,7 +103,7 @@ module Parser =
             let tailType =
                 typeString
                 |> trim
-                |> (fun x -> x.Substring(orSeparatorPosition + 1))
+                |> cutLeft (orSeparatorPosition + 1)
                 |> parseType
                 
             OrType ([headType] @ [ tailType ])
@@ -126,11 +147,11 @@ module Parser =
             @
             (
             argString
-            |> (fun x -> x.Substring(position + 1))
+            |> cutLeft (position + 1)
             |> trim
             |> parseArgs)
             
-    let rec gatherArgs(lines: string[], currIndex: int, startIndex: int) : string * int =
+    let rec gatherArgsFromMultipleLines(lines: string[], currIndex: int, startIndex: int) : string * int =
         let line =
             if currIndex = startIndex then
                 lines.[currIndex].Substring(lines.[currIndex].IndexOf("(") + 1)
@@ -142,11 +163,11 @@ module Parser =
             |> (fun x -> x.Substring(0, line.IndexOf(")")))
             |> trim), currIndex
         else
-             let gathered, index = gatherArgs(lines, currIndex + 1, startIndex)
+             let gathered, index = gatherArgsFromMultipleLines(lines, currIndex + 1, startIndex)
              line + gathered, index
 
     let parseFunc (lines: string[], currIndex: int) : FunctionDef * int =
-        let collected_args, index = gatherArgs(lines, currIndex, currIndex)
+        let collected_args, index = gatherArgsFromMultipleLines(lines, currIndex, currIndex)
         let line = lines.[currIndex]
 
         match line.Split([| '(' |]) with
@@ -155,7 +176,7 @@ module Parser =
             | [| _; funPartType |] ->
                 let nameFunc = name
                                 |> trim
-                                |> (fun x -> x.Substring("def".Length))
+                                |> cutLeft DEF.Length
                                 |> trim
 
                 {
@@ -164,14 +185,11 @@ module Parser =
                     Type = parseTypePart(funPartType);
                 }, index + 1
 
-    let parseFuncDefinition(lines: string[], currIndex: int): FunctionDef * int  = 
-        parseFunc(lines, currIndex)
-
     let parseClassDefinition (classHead: string) : (string * string list) =
         let withoutClass = 
             classHead 
             |> trim 
-            |> (fun x -> x.Substring("class".Length))
+            |> (fun x -> x.Substring(CLASS.Length))
             |> trim 
 
         match withoutClass.Split([| '('; ')'; ':' |]) with
@@ -197,8 +215,8 @@ module Parser =
                 else
                     let trimmed = line.Trim()
 
-                    if trimmed.StartsWith("def") then
-                        let func, funcIndex = parseFuncDefinition(lines, currIndex)
+                    if trimmed.StartsWith(DEF) then
+                        let func, funcIndex = parseFunc(lines, currIndex)
                         let moduleItems, index = getClassItems(lines, funcIndex)
                         [ ClassItem.FunctionDef func] @ moduleItems, index
                     else
@@ -210,30 +228,52 @@ module Parser =
         let name, inherits = parseClassDefinition(lines.[currIndex])
         let classItems, index = getClassItems(lines, currIndex + 1)
         { ClassDef.Name = name; Inherits = inherits; Items = classItems } , index
+        
+    let rec parseIf(lines: string[], currIndex: int, currLevel: int) : IfDef * int =
+        let line =
+            lines.[currIndex]
+            |> cutLeft IF.Length
+        match line.Split(":") with
+        | [| condition; _ |] ->
+            let thenItems, thenIndex = parseModuleItems(lines, currIndex + 1, currLevel)
+            let elseItems, elseIndex =
+                if thenIndex < lines.Length && lines.[thenIndex].StartsWith ((String.replicate (currLevel - 1) identation) + "else") then
+                    parseModuleItems (lines, thenIndex + 1, currLevel)
+                else
+                    [], thenIndex
+                
+            {IfDef.Condition = condition |> trim; ThenItems = thenItems; ElseItems = elseItems }, elseIndex
 
-    let rec parseModuleItems (lines: string[], currIndex: int ): ModuleItem list * int =
+    and parseModuleItems (lines: string[], currIndex: int, currLevel: int ): ModuleItem list * int =
         if currIndex = lines.Length then
             [], currIndex
         else
             let line = lines.[currIndex]
 
-            if ( line.Trim().Length = 0) then
-                parseModuleItems(lines, currIndex + 1)
+            if (line.Trim().Length = 0) then
+                parseModuleItems(lines, currIndex + 1, currLevel)
+            else if ((String.replicate currLevel identation) + line.TrimStart() <> line) then
+                [], currIndex
             else
-                if line.StartsWith("class") then
+                let trimmedLine = line |> trim
+                if trimmedLine.StartsWith(CLASS) then
                     let classDef, classIndex = parseClass(lines, currIndex)
-                    let moduleItems, index = parseModuleItems(lines, classIndex)
+                    let moduleItems, index = parseModuleItems(lines, classIndex, currLevel)
                     [ ModuleItem.ClassDef classDef ] @ moduleItems, index
-                else if line.StartsWith("def") then
-                    let func, funcIndex = parseFuncDefinition(lines, currIndex)
-                    let moduleItems, index = parseModuleItems(lines, funcIndex)
+                else if trimmedLine.StartsWith(DEF) then
+                    let func, funcIndex = parseFunc(lines, currIndex)
+                    let moduleItems, index = parseModuleItems(lines, funcIndex, currLevel)
                     [ ModuleItem.FunctionDef func] @ moduleItems, index
+                else if trimmedLine.StartsWith(IF) then
+                    let ifDef, funcIndex = parseIf(lines, currIndex, currLevel + 1)
+                    let moduleItems, index = parseModuleItems(lines, funcIndex, currLevel)
+                    [ ModuleItem.IfDef ifDef] @ moduleItems, index
                 else
                     let variableDef, nextIndex = parseVariable(lines, currIndex)
-                    let moudleItems, index = parseModuleItems(lines, nextIndex)
-                    [ ModuleItem.VariableDef variableDef ] @ moudleItems, index
+                    let moduleItems, index = parseModuleItems(lines, nextIndex, currLevel)
+                    [ ModuleItem.VariableDef variableDef ] @ moduleItems, index
     
     let parseModule (source: string) : Module =
         let lines = source.Split("\n")
-        let items, _ = parseModuleItems(lines, 0)
-        {Module.Items = items}
+        let items, _ = parseModuleItems(lines, 0, 0)
+        { Module.Items = items }
