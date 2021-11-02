@@ -5,5 +5,5 @@ Current abilities:
  - [x] - Parse class
  - [x] - Parse function
  - [x] - Parse variable
- - [ ] - Parse type. (It works in common but not with difficul tpe definitions)
+ - [ ] - Parse type. (It works in common but not with difficult type definitions)
  - [ ] - Parse `if`'s conditions. 
