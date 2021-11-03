@@ -74,7 +74,7 @@ let ParseClass () =
     def __init__(self, arg: int) -> None: ...
     def next_method(self, arg1: string, arg2: string) -> None: ...
 "
-    let result, _ = parseClass(source.Split("\n"), 0)
+    let result, _ = parseClass(source.Split("\n"), 0, 0)
 
     Assert.AreEqual(
         {            
@@ -106,7 +106,7 @@ let ParseClassWithInherits () =
     def next_method(self, arg1: string, arg2: string) -> int: ...
 
 """
-    let result, _ = parseClass(source.Split("\n"), 0)
+    let result, _ = parseClass(source.Split("\n"), 0, 0)
 
     Assert.AreEqual(
         {            
@@ -186,7 +186,7 @@ MyVar: tuple[int, string]
 
 
 [<Test>]
-let ParseModuleWithIF () =
+let ParseModuleWithIFElse () =
     let source ="""
 
 if condition:
@@ -219,6 +219,43 @@ else:
                         }
                     ]
                 };
+            ]
+        }
+        , result)
+
+[<Test>]
+let ParseModuleWithIF () =
+    let source ="""
+
+if condition:
+    def func1(arg1: string, arg2: int) -> float: ...
+
+def func2(arg3: string, arg4: int) -> float: ...
+"""
+    let result = parseModule(source)
+
+    Assert.AreEqual(
+        {
+            Module.Items = [
+                ModuleItem.IfDef {
+                    IfDef.Condition = "condition"
+                    ThenItems = [
+                         ModuleItem.FunctionDef {
+                             FunctionDef.Name = "func1";
+                             Type = SimpleType "float";
+                             Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
+                                     { Argument.Name = "arg2"; Type = SimpleType "int"}]
+                         }
+                    ]
+                    ElseItems = []
+                };
+
+                ModuleItem.FunctionDef {
+                        FunctionDef.Name = "func2";
+                        Type = SimpleType "float"
+                        Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
+                                { Argument.Name = "arg4"; Type = SimpleType "int"}]
+                    }
             ]
         }
         , result)
