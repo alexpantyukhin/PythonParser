@@ -6,4 +6,4 @@ Current abilities:
  - [x] - Parse function
  - [x] - Parse variable
  - [ ] - Parse type. (It works in common but not with difficult type definitions)
- - [ ] - Parse `if`'s conditions. 
+ - [x] - Parse `if`'s conditions. 
