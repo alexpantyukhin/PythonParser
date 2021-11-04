@@ -108,7 +108,7 @@ module Parser =
                 |> trim
                 |> cutLeft (orSeparatorPosition + 1)
                 |> parseType
-                
+
             OrType ([headType] @ [ tailType ])
 
     let parseTypePart (funPartType: string) : Type =
@@ -212,9 +212,9 @@ module Parser =
             [], currIndex
         else
             let line = lines.[currIndex]
-            let trimmed = line.Trim()
+            let trimmed = trim line
 
-            if (trimmed |> isEmpty) then
+            if (isEmpty trimmed) then
                 parseClassItems(lines, currIndex + 1, currLevel)
             else
                 if not (line.StartsWith(String.replicate currLevel indentation)) then
@@ -268,8 +268,6 @@ module Parser =
                 let trimmedLine = trim line
                 if (isEmpty trimmedLine) || trimmedLine.StartsWith("@") || trimmedLine.StartsWith("import") || trimmedLine.StartsWith("from") then
                     parseModuleItems(lines, currIndex + 1, currLevel)
-                else if ((String.replicate currLevel indentation) + line.TrimStart() <> line) then
-                    [], currIndex
                 else
                     if trimmedLine.StartsWith(CLASS) then
                         let classDef, classIndex = parseClass(lines, currIndex, currLevel)
