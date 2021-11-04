@@ -84,27 +84,44 @@ module Parser =
             | '|' when bracketNumber = 0 -> currIndex
             | _ -> firstOrSeparatorPosition (str, currIndex + 1, bracketNumber)
 
+    let rec splitTypesByComma(str: string, currIndex: int, prevPosition: int, bracketNumber: int): string list = 
+        if currIndex >= str.Length then
+            [str.Substring(prevPosition, currIndex - prevPosition)]
+        else
+            match str.[currIndex] with
+            | ']' -> splitTypesByComma (str, currIndex + 1, prevPosition, bracketNumber - 1)
+            | '[' -> splitTypesByComma (str, currIndex + 1, prevPosition, bracketNumber + 1)
+            | ',' when bracketNumber = 0 ->
+                [str.Substring(prevPosition, currIndex - prevPosition)]
+                @
+                splitTypesByComma(str, currIndex + 1, currIndex + 1, bracketNumber)
+            | _ -> splitTypesByComma (str, currIndex + 1, prevPosition, bracketNumber)
+
     let rec parseType (typeString: string) : Type =
-        let orSeparatorPosition = firstOrSeparatorPosition (typeString, 0, 0)
-        if orSeparatorPosition = typeString.Length then
-            match typeString.Split([| '['; ']' |]) with
-            | [| mainName; innerTypes; _|] | [| mainName; innerTypes;|]->
-                CompositionType
-                    (mainName.Trim(),
-                    innerTypes.Split(",")
-                     |> Seq.toList
-                     |> List.map trim
-                     |> List.map parseType)
-            | _ -> SimpleType (typeString |> trim)
+        let trimmedTypeString = trim typeString
+        let orSeparatorPosition = firstOrSeparatorPosition (trimmedTypeString , 0, 0)
+        if orSeparatorPosition = trimmedTypeString .Length then
+            let leftBracket = trimmedTypeString .IndexOf("[")
+            if leftBracket > -1 then
+                let name = trim (trimmedTypeString.Substring(0, leftBracket))
+                let innerTypesStr = trimmedTypeString.Substring(leftBracket + 1, trimmedTypeString.Length - leftBracket - 2)
+                let innerTypesMap =
+                    splitTypesByComma(innerTypesStr, 0, 0, 0)
+                    |> List.map trim
+                    |> List.map parseType
+                    
+                CompositionType (name, innerTypesMap)
+            else
+                SimpleType trimmedTypeString
         else
             let headType =
-                typeString
+                trimmedTypeString
                 |> trim
                 |> (fun x -> x.Substring(0, orSeparatorPosition))
                 |> parseType
 
             let tailType =
-                typeString
+                trimmedTypeString
                 |> trim
                 |> cutLeft (orSeparatorPosition + 1)
                 |> parseType
@@ -112,7 +129,7 @@ module Parser =
             OrType ([headType] @ [ tailType ])
 
     let parseTypePart (funPartType: string) : Type =
-        let trimmed = funPartType |> trim
+        let trimmed = trim funPartType
         
         if isEmpty trimmed then
             SimpleType ""

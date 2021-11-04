@@ -16,7 +16,28 @@ let ParseSingleArgTests () =
             Type = SimpleType "float"
             Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" }]
         }, result)
-    
+
+[<Test>]
+let ParseComplexType () =
+    let result, _ = parseFunc([|"def handle_starttag(attrs: list[tuple[str, str | None]]) -> None: ..."|], 0)
+    Assert.AreEqual(
+    {
+        FunctionDef.Name = "handle_starttag";
+        Type = SimpleType "None"
+        Args = [{
+            Argument.Name = "attrs";
+            Type = CompositionType ("list", [
+                CompositionType ("tuple", [
+                    SimpleType "str"
+                    OrType [
+                        SimpleType "str"
+                        SimpleType "None"
+                    ]
+                ])
+            ])
+        }]
+    }, result)
+
 [<Test>]
 let ParseMultiLineArgTests () =
     let source = """def func(arg1: string,
