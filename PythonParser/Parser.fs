@@ -12,6 +12,12 @@ module Parser =
     [<Literal>]
     let IF = "if"
 
+    [<Literal>]
+    let ELSE = "else"
+
+    [<Literal>]
+    let ELIF = "elif"
+
     let indentation = "    "
 
     type Type =
@@ -48,12 +54,18 @@ module Parser =
             Inherits: string list
             Items: ClassItem list
         }
-        
+
     type IfDef = {
         Condition: string
-        ThenItems: ModuleItem list
-        ElseItems: ModuleItem list
+        Then: ThenDef
+        Else: ElseDef
     }
+
+    and ThenDef = ModuleItem list
+
+    and ElseDef =
+    | IfDef of IfDef
+    | Items of ModuleItem list
 
     and ModuleItem =
     | FunctionDef of FunctionDef  
@@ -107,10 +119,10 @@ module Parser =
                 let innerTypesStr = trimmedTypeString.Substring(leftBracket + 1, trimmedTypeString.Length - leftBracket - 2)
                 let innerTypesMap =
                     splitTypesByComma(innerTypesStr, 0, 0, 0)
-                    |> List.map trim
-                    |> List.map parseType
-                    
+                    |> List.map (trim >> parseType)
+
                 CompositionType (name, innerTypesMap)
+
             else
                 SimpleType trimmedTypeString
         else
@@ -157,7 +169,7 @@ module Parser =
 
     let rec parseArgs (argString : string) : Argument list =
         match firstArgSeparatorPosition(argString, 0, 0) with
-        | position when position = argString.Length -> [ argString.Trim() |> parseArg ]
+        | position when position = argString.Length -> [ argString |> trim |> parseArg ]
         | position ->
             [
             argString
@@ -205,7 +217,7 @@ module Parser =
                     Type = parseTypePart(funPartType);
                 }, index + 1
 
-    let parseClassDefinition (classHead: string) : (string * string list) =
+    let parseClassDefinition (classHead: string) : string * string list =
         let withoutClass = 
             classHead 
             |> trim 
@@ -219,10 +231,10 @@ module Parser =
     let parseVariable (lines: string[], currIndex: int) : VariableDef * int =
         let line = lines.[currIndex]
         match line.Split([| ':' |]) with
-        | [| name; typeStr  |] -> {VariableDef.Name = name.Trim(); Type = parseType(typeStr)} , currIndex + 1
+        | [| name; typeStr  |] -> {VariableDef.Name = trim name; Type = parseType typeStr} , currIndex + 1
         | [| _; |] ->
             match line.Split([| '=' |]) with
-            | [| name; _  |] -> {VariableDef.Name = name.Trim(); Type = SimpleType ""} , currIndex + 1
+            | [| name; _  |] -> {VariableDef.Name = trim name; Type = SimpleType ""} , currIndex + 1
 
     let rec parseClassItems(lines: string[], currIndex: int, currLevel: int) : ClassItem list * int =
         if currIndex = lines.Length then 
@@ -251,29 +263,40 @@ module Parser =
         let classItems, index = parseClassItems(lines, currIndex + 1, currLevel + 1)
         { ClassDef.Name = name; Inherits = inherits; Items = classItems } , index
         
-    let rec parseElsePart (lines: string[], currIndex: int, currLevel: int) : ModuleItem list * int =
+    let rec parseElsePart (lines: string[], currIndex: int, currLevel: int) : ElseDef * int =
         if currIndex = lines.Length then
-            [], currIndex
+            ElseDef.Items [], currIndex
         else
             let elseLine = lines.[currIndex]
             if (elseLine |> trim |> isEmpty) then
                 parseElsePart(lines, currIndex + 1, currLevel)
-            else if elseLine.StartsWith ((String.replicate (currLevel - 1) indentation) + "else") then
-                parseModuleItems (lines, currIndex + 1, currLevel)
-            else
-                [], currIndex
-        
+            else if elseLine.StartsWith ((String.replicate (currLevel - 1) indentation) + ELSE) then
+                let items, index = parseModuleItems (lines, currIndex + 1, currLevel)
+                ElseDef.Items items, index
+            else if elseLine.StartsWith ((String.replicate (currLevel - 1) indentation) + ELIF) then
+                let ifDef, funcIndex = parseElif(lines, currIndex, currLevel) 
+                ElseDef.IfDef ifDef, funcIndex 
+            else 
+                ElseDef.Items [], currIndex
+
+    and parseElif(lines: string[], currIndex: int, currLevel: int): IfDef * int =
+        parseCondition(ELIF, lines, currIndex, currLevel)
+
     and parseIf(lines: string[], currIndex: int, currLevel: int) : IfDef * int =
+        parseCondition(IF, lines, currIndex, currLevel)
+
+    and parseCondition(keyword: string, lines: string[], currIndex: int, currLevel: int) : IfDef * int = 
         let line =
             lines.[currIndex]
-            |> cutLeft IF.Length
+            |> cutLeft keyword.Length
         match line.Split(":") with
         | [| condition; _ |] ->
             let thenItems, thenIndex = parseModuleItems(lines, currIndex + 1, currLevel)
             let elseItems, elseIndex = parseElsePart(lines, thenIndex, currLevel)
 
-            {IfDef.Condition = trim condition; ThenItems = thenItems; ElseItems = elseItems }, elseIndex
+            { IfDef.Condition = trim condition; Then = thenItems; Else = elseItems }, elseIndex
 
+    
     and parseModuleItems (lines: string[], currIndex: int, currLevel: int ): ModuleItem list * int =
         if currIndex = lines.Length then
             [], currIndex
