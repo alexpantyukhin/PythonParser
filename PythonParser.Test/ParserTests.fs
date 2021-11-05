@@ -223,7 +223,7 @@ else:
             Module.Items = [
                 ModuleItem.IfDef {
                     IfDef.Condition = "condition"
-                    ThenItems = [
+                    Then = [
                          ModuleItem.FunctionDef {
                              FunctionDef.Name = "func1";
                              Type = SimpleType "float";
@@ -231,7 +231,7 @@ else:
                                      { Argument.Name = "arg2"; Type = SimpleType "int"}]
                          }
                     ]
-                    ElseItems = [
+                    Else = ElseDef.Items [
                         ModuleItem.FunctionDef {
                             FunctionDef.Name = "func2";
                             Type = SimpleType "float"
@@ -239,6 +239,58 @@ else:
                                     { Argument.Name = "arg4"; Type = SimpleType "int"}]
                         }
                     ]
+                };
+            ]
+        }
+        , result)
+
+[<Test>]
+let ParseModuleWithIFElif () =
+    let source ="""
+
+if condition:
+    def func1(arg1: string, arg2: int) -> float: ...
+
+elif condition2:
+    def func2(arg3: string, arg4: int) -> float: ...
+
+else
+    def func3(arg3: string, arg4: int) -> float: ...
+"""
+    let result = parseModule(source)
+
+    Assert.AreEqual(
+        {
+            Module.Items = [
+                ModuleItem.IfDef {
+                    IfDef.Condition = "condition"
+                    Then = [
+                         ModuleItem.FunctionDef {
+                             FunctionDef.Name = "func1";
+                             Type = SimpleType "float";
+                             Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
+                                     { Argument.Name = "arg2"; Type = SimpleType "int"}]
+                         }
+                    ]
+                    Else = ElseDef.IfDef {
+                        IfDef.Condition = "condition2"
+                        Then = [
+                            ModuleItem.FunctionDef {
+                                FunctionDef.Name = "func2";
+                                Type = SimpleType "float"
+                                Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
+                                        { Argument.Name = "arg4"; Type = SimpleType "int"}]
+                            }
+                        ]
+                        Else = ElseDef.Items [
+                            ModuleItem.FunctionDef {
+                                FunctionDef.Name = "func3";
+                                Type = SimpleType "float"
+                                Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
+                                        { Argument.Name = "arg4"; Type = SimpleType "int"}]
+                            }
+                        ]
+                    }
                 };
             ]
         }
@@ -260,7 +312,7 @@ def func2(arg3: string, arg4: int) -> float: ...
             Module.Items = [
                 ModuleItem.IfDef {
                     IfDef.Condition = "condition"
-                    ThenItems = [
+                    Then = [
                          ModuleItem.FunctionDef {
                              FunctionDef.Name = "func1";
                              Type = SimpleType "float";
@@ -268,7 +320,7 @@ def func2(arg3: string, arg4: int) -> float: ...
                                      { Argument.Name = "arg2"; Type = SimpleType "int"}]
                          }
                     ]
-                    ElseItems = []
+                    Else = ElseDef.Items []
                 };
 
                 ModuleItem.FunctionDef {
