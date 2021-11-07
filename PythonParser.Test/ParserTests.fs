@@ -103,13 +103,13 @@ let ParseClass () =
             Inherits = []
             Items = 
             [
-                ClassItem.FunctionDef {
+                Unit.FunctionDef {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType "None"
                     Args = [{ Argument.Name = "self"; Type = SimpleType ""} ;
                             { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
-                ClassItem.FunctionDef {
+                Unit.FunctionDef {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType "None"
                     Args = [{ Argument.Name = "self"; Type = SimpleType "" };
@@ -135,13 +135,13 @@ let ParseClassWithInherits () =
             Inherits = [ "Basic" ]
             Items = 
             [
-                ClassItem.FunctionDef {
+                Unit.FunctionDef {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType "None"
                     Args = [ { Argument.Name = "self"; Type = SimpleType "" };
                              { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
-                ClassItem.FunctionDef {
+                Unit.FunctionDef {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType "int"
                     Args = [
@@ -171,24 +171,24 @@ MyVar: tuple[int, string]
     Assert.AreEqual(
         {
             Module.Items = [
-                ModuleItem.FunctionDef {
+                Unit.FunctionDef {
                     FunctionDef.Name = "func";
                     Type = SimpleType "float"
                     Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                             { Argument.Name = "arg2"; Type = SimpleType "int"}]
                 };
-                ModuleItem.ClassDef {            
+                Unit.ClassDef {            
                     ClassDef.Name = "MyClass";
                     Inherits = [ "Basic" ]
                     Items = 
                     [
-                        ClassItem.FunctionDef {
+                        Unit.FunctionDef {
                             FunctionDef.Name = "__init__";
                             Type = SimpleType "None"
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                                     { Argument.Name = "arg"; Type = SimpleType "int"}]
                         };
-                        ClassItem.FunctionDef {
+                        Unit.FunctionDef {
                             FunctionDef.Name = "next_method";
                             Type = SimpleType "int"
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
@@ -197,7 +197,7 @@ MyVar: tuple[int, string]
                         }
                     ]
                 }
-                ModuleItem.VariableDef {
+                Unit.VariableDef {
                     VariableDef.Name = "MyVar"
                     Type = CompositionType ("tuple", [ SimpleType "int"; SimpleType "string" ])
                 }
@@ -221,10 +221,10 @@ else:
     Assert.AreEqual(
         {
             Module.Items = [
-                ModuleItem.IfDef {
+                Unit.IfDef {
                     IfDef.Condition = "condition"
                     Then = [
-                         ModuleItem.FunctionDef {
+                         Unit.FunctionDef {
                              FunctionDef.Name = "func1";
                              Type = SimpleType "float";
                              Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
@@ -232,7 +232,7 @@ else:
                          }
                     ]
                     Else = ElseDef.Items [
-                        ModuleItem.FunctionDef {
+                        Unit.FunctionDef {
                             FunctionDef.Name = "func2";
                             Type = SimpleType "float"
                             Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
@@ -262,10 +262,10 @@ else
     Assert.AreEqual(
         {
             Module.Items = [
-                ModuleItem.IfDef {
+                Unit.IfDef {
                     IfDef.Condition = "condition"
                     Then = [
-                         ModuleItem.FunctionDef {
+                         Unit.FunctionDef {
                              FunctionDef.Name = "func1";
                              Type = SimpleType "float";
                              Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
@@ -275,7 +275,7 @@ else
                     Else = ElseDef.IfDef {
                         IfDef.Condition = "condition2"
                         Then = [
-                            ModuleItem.FunctionDef {
+                            Unit.FunctionDef {
                                 FunctionDef.Name = "func2";
                                 Type = SimpleType "float"
                                 Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
@@ -283,7 +283,7 @@ else
                             }
                         ]
                         Else = ElseDef.Items [
-                            ModuleItem.FunctionDef {
+                            Unit.FunctionDef {
                                 FunctionDef.Name = "func3";
                                 Type = SimpleType "float"
                                 Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
@@ -310,10 +310,10 @@ def func2(arg3: string, arg4: int) -> float: ...
     Assert.AreEqual(
         {
             Module.Items = [
-                ModuleItem.IfDef {
+                Unit.IfDef {
                     IfDef.Condition = "condition"
                     Then = [
-                         ModuleItem.FunctionDef {
+                         Unit.FunctionDef {
                              FunctionDef.Name = "func1";
                              Type = SimpleType "float";
                              Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
@@ -323,7 +323,7 @@ def func2(arg3: string, arg4: int) -> float: ...
                     Else = ElseDef.Items []
                 };
 
-                ModuleItem.FunctionDef {
+                Unit.FunctionDef {
                         FunctionDef.Name = "func2";
                         Type = SimpleType "float"
                         Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
