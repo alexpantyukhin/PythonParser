@@ -81,6 +81,14 @@ module Parser =
     let isEmpty (str: string) =
         str.Length = 0
 
+    let cleanLineFromComments (line : string) : string =
+        // Simple way for now
+        let commentSymbol = line.IndexOf("#")
+        if commentSymbol = -1 then
+            line
+        else
+            line.Substring(0, commentSymbol)
+    
     let rec firstOrSeparatorPosition(str: string, currIndex: int, bracketNumber: int): int = 
         if currIndex >= str.Length then
             str.Length
@@ -185,17 +193,22 @@ module Parser =
             else
                 lines.[currIndex]
 
-        if line.Contains(")") then
-            (line
-            |> (fun x -> x.Substring(0, line.IndexOf(")")))
+        let cleanLine = cleanLineFromComments line
+
+        let closedBracketIndex = cleanLine.IndexOf(")")
+        if closedBracketIndex > -1 then
+            (cleanLine
+            |> (fun x -> x.Substring(0, closedBracketIndex))
             |> trim), currIndex
         else
              let gathered, index = gatherArgsFromMultipleLines(lines, currIndex + 1, startIndex)
-             line + gathered, index
+             cleanLine + gathered, index
 
     let parseFunc (lines: string[], currIndex: int) : FunctionDef * int =
         let collected_args, index = gatherArgsFromMultipleLines(lines, currIndex, currIndex)
-        let line = lines.[currIndex]
+        let line =
+            lines.[currIndex]
+            |> cleanLineFromComments
 
         match line.Split([| '(' |]) with
         | [| name; _ |] ->
@@ -214,7 +227,8 @@ module Parser =
 
     let parseClassDefinition (classHead: string) : string * string list =
         let withoutClass = 
-            classHead 
+            classHead
+            |> cleanLineFromComments
             |> trim 
             |> cutLeft CLASS.Length
             |> trim 
@@ -224,7 +238,9 @@ module Parser =
         | [| name; _ |] -> name, []
         
     let parseVariable (lines: string[], currIndex: int) : VariableDef * int =
-        let line = lines.[currIndex]
+        let line =
+            lines.[currIndex]
+            |> cleanLineFromComments
         match line.Split([| ':' |]) with
         | [| name; typeStr  |] -> {VariableDef.Name = trim name; Type = parseType typeStr} , currIndex + 1
         | [| _; |] ->
@@ -235,7 +251,9 @@ module Parser =
         if currIndex = lines.Length then
             ElseDef.Items [], currIndex
         else
-            let elseLine = lines.[currIndex]
+            let elseLine =
+                lines.[currIndex]
+                |> cleanLineFromComments
             if (elseLine |> trim |> isEmpty) then
                 parseElsePart(lines, currIndex + 1, currLevel)
             else if elseLine.StartsWith ((String.replicate (currLevel - 1) indentation) + ELSE) then
@@ -256,6 +274,7 @@ module Parser =
     and parseCondition(keyword: string, lines: string[], currIndex: int, currLevel: int) : IfDef * int = 
         let line =
             lines.[currIndex]
+            |> cleanLineFromComments
             |> cutLeft keyword.Length
         match line.Split(":") with
         | [| condition; _ |] ->
@@ -273,9 +292,12 @@ module Parser =
         if currIndex = lines.Length then
             [], currIndex
         else
-            let line = lines.[currIndex]
+            let line =
+                lines.[currIndex]
+                |> cleanLineFromComments
+
             let trimmedLine = trim line
-            
+
             if (isEmpty trimmedLine) || trimmedLine.StartsWith("@") || trimmedLine.StartsWith("import") || trimmedLine.StartsWith("from") then
                 parseUnits(lines, currIndex + 1, currLevel)
             else
