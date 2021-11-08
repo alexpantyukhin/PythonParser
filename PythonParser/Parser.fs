@@ -244,8 +244,8 @@ module Parser =
         match line.Split([| ':' |]) with
         | [| name; typeStr  |] -> {VariableDef.Name = trim name; Type = parseType typeStr} , currIndex + 1
         | [| _; |] ->
-            match line.Split([| '=' |]) with
-            | [| name; _  |] -> {VariableDef.Name = trim name; Type = SimpleType ""} , currIndex + 1
+            let equalitySignIndex = line.IndexOf("=")
+            {VariableDef.Name = trim (line.Substring(0, equalitySignIndex)) ; Type = SimpleType ""} , currIndex + 1
 
     let rec parseElsePart (lines: string[], currIndex: int, currLevel: int) : ElseDef * int =
         if currIndex = lines.Length then
