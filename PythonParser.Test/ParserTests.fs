@@ -207,6 +207,60 @@ MyVar: tuple[int, string]
 
 
 [<Test>]
+let ParseModuleWithComments () =
+    let source ="""
+def func(arg1: string, arg2: int) -> float: ... # this is inline comment
+
+# Comment line
+class MyClass(Basic): # In class def comment
+    def __init__(self, arg: int) -> None: ...
+    # Some comments inside class
+    def next_method(self, arg1: string, arg2: string) -> int: ...
+
+# before var comment
+MyVar: tuple[int, string]
+
+"""
+    let result = parseModule(source)
+
+    Assert.AreEqual(
+        {
+            Module.Items = [
+                Unit.FunctionDef {
+                    FunctionDef.Name = "func";
+                    Type = SimpleType "float"
+                    Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
+                            { Argument.Name = "arg2"; Type = SimpleType "int"}]
+                };
+                Unit.ClassDef {            
+                    ClassDef.Name = "MyClass";
+                    Inherits = [ "Basic" ]
+                    Items = 
+                    [
+                        Unit.FunctionDef {
+                            FunctionDef.Name = "__init__";
+                            Type = SimpleType "None"
+                            Args = [{ Argument.Name = "self"; Type = SimpleType "" };
+                                    { Argument.Name = "arg"; Type = SimpleType "int"}]
+                        };
+                        Unit.FunctionDef {
+                            FunctionDef.Name = "next_method";
+                            Type = SimpleType "int"
+                            Args = [{ Argument.Name = "self"; Type = SimpleType "" };
+                                    { Argument.Name = "arg1"; Type = SimpleType "string" };
+                                    { Argument.Name = "arg2"; Type = SimpleType "string" }]
+                        }
+                    ]
+                }
+                Unit.VariableDef {
+                    VariableDef.Name = "MyVar"
+                    Type = CompositionType ("tuple", [ SimpleType "int"; SimpleType "string" ])
+                }
+            ]
+        }
+        , result)
+
+[<Test>]
 let ParseModuleWithIFElse () =
     let source ="""
 
