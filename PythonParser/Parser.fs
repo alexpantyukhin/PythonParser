@@ -239,7 +239,7 @@ module Parser =
             if (elseLine |> trim |> isEmpty) then
                 parseElsePart(lines, currIndex + 1, currLevel)
             else if elseLine.StartsWith ((String.replicate (currLevel - 1) indentation) + ELSE) then
-                let items, index = parseModuleItems (lines, currIndex + 1, currLevel)
+                let items, index = parseUnits (lines, currIndex + 1, currLevel)
                 ElseDef.Items items, index
             else if elseLine.StartsWith ((String.replicate (currLevel - 1) indentation) + ELIF) then
                 let ifDef, funcIndex = parseElif(lines, currIndex, currLevel) 
@@ -259,17 +259,17 @@ module Parser =
             |> cutLeft keyword.Length
         match line.Split(":") with
         | [| condition; _ |] ->
-            let thenItems, thenIndex = parseModuleItems(lines, currIndex + 1, currLevel)
+            let thenItems, thenIndex = parseUnits(lines, currIndex + 1, currLevel)
             let elseItems, elseIndex = parseElsePart(lines, thenIndex, currLevel)
 
             { IfDef.Condition = trim condition; Then = thenItems; Else = elseItems }, elseIndex
 
     and parseClass (lines: string[], currIndex: int, currLevel: int): ClassDef * int = 
         let name, inherits = parseClassDefinition(lines.[currIndex])
-        let classItems, index = parseModuleItems(lines, currIndex + 1, currLevel + 1)
+        let classItems, index = parseUnits(lines, currIndex + 1, currLevel + 1)
         { ClassDef.Name = name; Inherits = inherits; Items = classItems } , index
 
-    and parseModuleItems (lines: string[], currIndex: int, currLevel: int ): Unit list * int =
+    and parseUnits (lines: string[], currIndex: int, currLevel: int ): Unit list * int =
         if currIndex = lines.Length then
             [], currIndex
         else
@@ -277,29 +277,29 @@ module Parser =
             let trimmedLine = trim line
             
             if (isEmpty trimmedLine) || trimmedLine.StartsWith("@") || trimmedLine.StartsWith("import") || trimmedLine.StartsWith("from") then
-                parseModuleItems(lines, currIndex + 1, currLevel)
+                parseUnits(lines, currIndex + 1, currLevel)
             else
                 if (not (line.StartsWith (String.replicate currLevel indentation))) then
                     [], currIndex
                 else
                     if trimmedLine.StartsWith(CLASS) then
                         let classDef, classIndex = parseClass(lines, currIndex, currLevel)
-                        let moduleItems, index = parseModuleItems(lines, classIndex, currLevel)
+                        let moduleItems, index = parseUnits(lines, classIndex, currLevel)
                         [ Unit.ClassDef classDef ] @ moduleItems, index
                     else if trimmedLine.StartsWith(DEF) then
                         let func, funcIndex = parseFunc(lines, currIndex)
-                        let moduleItems, index = parseModuleItems(lines, funcIndex, currLevel)
+                        let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
                         [ Unit.FunctionDef func] @ moduleItems, index
                     else if trimmedLine.StartsWith(IF) then
                         let ifDef, funcIndex = parseIf(lines, currIndex, currLevel + 1)
-                        let moduleItems, index = parseModuleItems(lines, funcIndex, currLevel)
+                        let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
                         [ Unit.IfDef ifDef] @ moduleItems, index
                     else
                         let variableDef, nextIndex = parseVariable(lines, currIndex)
-                        let moduleItems, index = parseModuleItems(lines, nextIndex, currLevel)
+                        let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
                         [ Unit.VariableDef variableDef ] @ moduleItems, index
         
     let parseModule (source: string) : Module =
         let lines = source.Split("\n")
-        let items, _ = parseModuleItems(lines, 0, 0)
+        let items, _ = parseUnits(lines, 0, 0)
         { Module.Items = items }
