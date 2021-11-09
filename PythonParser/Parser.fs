@@ -18,6 +18,9 @@ module Parser =
     [<Literal>]
     let ELIF = "elif"
 
+    [<Literal>]
+    let FROM = "from"
+
     let indentation = "    "
 
     type Type =
@@ -247,6 +250,21 @@ module Parser =
             let equalitySignIndex = line.IndexOf("=")
             {VariableDef.Name = trim (line.Substring(0, equalitySignIndex)) ; Type = SimpleType ""} , currIndex + 1
 
+    let rec findCloseBracketLine(lines: string[], currIndex: int): int =
+        let line = lines.[currIndex]
+        if line.Contains(")") then
+            currIndex + 1
+        else
+            findCloseBracketLine(lines, currIndex + 1)
+
+    let parseFrom(lines: string[], currIndex: int): int =
+        let line = lines.[currIndex]
+        let openBracketIndex = line.IndexOf("(")
+        if openBracketIndex > -1 then
+            findCloseBracketLine(lines, currIndex + 1)
+        else
+            currIndex + 1
+
     let rec parseElsePart (lines: string[], currIndex: int, currLevel: int) : ElseDef * int =
         if currIndex = lines.Length then
             ElseDef.Items [], currIndex
@@ -298,13 +316,15 @@ module Parser =
 
             let trimmedLine = trim line
 
-            if (isEmpty trimmedLine) || trimmedLine.StartsWith("@") || trimmedLine.StartsWith("import") || trimmedLine.StartsWith("from") then
+            if (isEmpty trimmedLine) || trimmedLine.StartsWith("@") || trimmedLine.StartsWith("import") then
                 parseUnits(lines, currIndex + 1, currLevel)
             else
                 if (not (line.StartsWith (String.replicate currLevel indentation))) then
                     [], currIndex
                 else
-                    if trimmedLine.StartsWith(CLASS) then
+                    if trimmedLine.StartsWith(FROM) then
+                        [], parseFrom(lines, currIndex)
+                    else if trimmedLine.StartsWith(CLASS) then
                         let classDef, classIndex = parseClass(lines, currIndex, currLevel)
                         let moduleItems, index = parseUnits(lines, classIndex, currLevel)
                         [ Unit.ClassDef classDef ] @ moduleItems, index
