@@ -14,6 +14,7 @@ let ParseSingleArgTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
+            Async = false
             Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" }]
         }, result)
 
@@ -24,6 +25,7 @@ let ParseComplexType () =
     {
         FunctionDef.Name = "handle_starttag";
         Type = SimpleType "None"
+        Async = false
         Args = [{
             Argument.Name = "attrs";
             Type = CompositionType ("list", [
@@ -50,6 +52,25 @@ let ParseMultiLineArgTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
+            Async = false
+            Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
+                    { Argument.Name = "arg2"; Type = SimpleType "int" }
+                    { Argument.Name = "arg3"; Type = SimpleType "string" } ]
+        }, result)
+    
+[<Test>]
+let ParseMultiLineArgAsyncTests () =
+    let source = """async def func(arg1: string,
+         arg2: int,
+         arg3: string) -> float: ...
+"""
+    
+    let result, _ = parseFunc(source.Split("\n"), 0)
+    Assert.AreEqual(
+        {
+            FunctionDef.Name = "func";
+            Type = SimpleType "float"
+            Async = true
             Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                     { Argument.Name = "arg2"; Type = SimpleType "int" }
                     { Argument.Name = "arg3"; Type = SimpleType "string" } ]
@@ -62,6 +83,7 @@ let ParseManyArgsTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
+            Async = false
             Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                     { Argument.Name = "arg2"; Type = SimpleType "int" }]
         }, result)
@@ -74,6 +96,7 @@ let ParseArgWithEnumTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
+            Async = false
             Args = [{ Argument.Name = "arg1"; Type = OrType [ SimpleType "string"; SimpleType "int" ] };
                     { Argument.Name = "arg2"; Type = SimpleType "int" }]
         }, result)
@@ -85,6 +108,7 @@ let ParseArgWithTupleTests () =
         {
             FunctionDef.Name = "func";
             Type = SimpleType "float"
+            Async = false
             Args = [{ Argument.Name = "arg1"; Type = CompositionType ("tuple", [ SimpleType "int"; SimpleType "string" ])};
                     { Argument.Name = "arg2"; Type = SimpleType "int" }]
         }, result)
@@ -93,7 +117,7 @@ let ParseArgWithTupleTests () =
 let ParseClass () =
     let source = "class MyClass:
     def __init__(self, arg: int) -> None: ...
-    def next_method(self, arg1: string, arg2: string) -> None: ...
+    async def next_method(self, arg1: string, arg2: string) -> None: ...
 "
     let result, _ = parseClass(source.Split("\n"), 0, 0)
 
@@ -106,12 +130,14 @@ let ParseClass () =
                 Unit.FunctionDef {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType "None"
+                    Async = false
                     Args = [{ Argument.Name = "self"; Type = SimpleType ""} ;
                             { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
                 Unit.FunctionDef {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType "None"
+                    Async = true
                     Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                             { Argument.Name = "arg1"; Type = SimpleType "string"};
                             { Argument.Name = "arg2"; Type = SimpleType "string" }]
@@ -138,12 +164,14 @@ let ParseClassWithInherits () =
                 Unit.FunctionDef {
                     FunctionDef.Name = "__init__";
                     Type = SimpleType "None"
+                    Async = false
                     Args = [ { Argument.Name = "self"; Type = SimpleType "" };
                              { Argument.Name = "arg"; Type = SimpleType "int" }]
                 };
                 Unit.FunctionDef {
                     FunctionDef.Name = "next_method";
                     Type = SimpleType "int"
+                    Async = false
                     Args = [
                          { Argument.Name = "self"; Type = SimpleType "" };
                          { Argument.Name = "arg1"; Type = SimpleType "string" };
@@ -174,6 +202,7 @@ MyVar: tuple[int, string]
                 Unit.FunctionDef {
                     FunctionDef.Name = "func";
                     Type = SimpleType "float"
+                    Async = false
                     Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                             { Argument.Name = "arg2"; Type = SimpleType "int"}]
                 };
@@ -185,12 +214,14 @@ MyVar: tuple[int, string]
                         Unit.FunctionDef {
                             FunctionDef.Name = "__init__";
                             Type = SimpleType "None"
+                            Async = false
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                                     { Argument.Name = "arg"; Type = SimpleType "int"}]
                         };
                         Unit.FunctionDef {
                             FunctionDef.Name = "next_method";
                             Type = SimpleType "int"
+                            Async = false
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                                     { Argument.Name = "arg1"; Type = SimpleType "string" };
                                     { Argument.Name = "arg2"; Type = SimpleType "string" }]
@@ -229,6 +260,7 @@ MyVar: tuple[int, string]
                 Unit.FunctionDef {
                     FunctionDef.Name = "func";
                     Type = SimpleType "float"
+                    Async = false
                     Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                             { Argument.Name = "arg2"; Type = SimpleType "int"}]
                 };
@@ -240,12 +272,14 @@ MyVar: tuple[int, string]
                         Unit.FunctionDef {
                             FunctionDef.Name = "__init__";
                             Type = SimpleType "None"
+                            Async = false
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                                     { Argument.Name = "arg"; Type = SimpleType "int"}]
                         };
                         Unit.FunctionDef {
                             FunctionDef.Name = "next_method";
                             Type = SimpleType "int"
+                            Async = false
                             Args = [{ Argument.Name = "self"; Type = SimpleType "" };
                                     { Argument.Name = "arg1"; Type = SimpleType "string" };
                                     { Argument.Name = "arg2"; Type = SimpleType "string" }]
@@ -280,7 +314,8 @@ else:
                     Then = [
                          Unit.FunctionDef {
                              FunctionDef.Name = "func1";
-                             Type = SimpleType "float";
+                             Type = SimpleType "float"
+                             Async = false
                              Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                                      { Argument.Name = "arg2"; Type = SimpleType "int"}]
                          }
@@ -289,6 +324,7 @@ else:
                         Unit.FunctionDef {
                             FunctionDef.Name = "func2";
                             Type = SimpleType "float"
+                            Async = false
                             Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
                                     { Argument.Name = "arg4"; Type = SimpleType "int"}]
                         }
@@ -321,7 +357,8 @@ else
                     Then = [
                          Unit.FunctionDef {
                              FunctionDef.Name = "func1";
-                             Type = SimpleType "float";
+                             Type = SimpleType "float"
+                             Async = false
                              Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                                      { Argument.Name = "arg2"; Type = SimpleType "int"}]
                          }
@@ -332,6 +369,7 @@ else
                             Unit.FunctionDef {
                                 FunctionDef.Name = "func2";
                                 Type = SimpleType "float"
+                                Async = false
                                 Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
                                         { Argument.Name = "arg4"; Type = SimpleType "int"}]
                             }
@@ -340,6 +378,7 @@ else
                             Unit.FunctionDef {
                                 FunctionDef.Name = "func3";
                                 Type = SimpleType "float"
+                                Async = false
                                 Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
                                         { Argument.Name = "arg4"; Type = SimpleType "int"}]
                             }
@@ -369,7 +408,8 @@ def func2(arg3: string, arg4: int) -> float: ...
                     Then = [
                          Unit.FunctionDef {
                              FunctionDef.Name = "func1";
-                             Type = SimpleType "float";
+                             Type = SimpleType "float"
+                             Async = false
                              Args = [{ Argument.Name = "arg1"; Type = SimpleType "string" };
                                      { Argument.Name = "arg2"; Type = SimpleType "int"}]
                          }
@@ -380,6 +420,7 @@ def func2(arg3: string, arg4: int) -> float: ...
                 Unit.FunctionDef {
                         FunctionDef.Name = "func2";
                         Type = SimpleType "float"
+                        Async = false
                         Args = [{ Argument.Name = "arg3"; Type = SimpleType "string" };
                                 { Argument.Name = "arg4"; Type = SimpleType "int"}]
                     }
