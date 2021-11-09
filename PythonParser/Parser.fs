@@ -1,6 +1,8 @@
 ﻿
 namespace PythonParser
 
+open System
+
 module Parser =
 
     [<Literal>]
@@ -21,6 +23,8 @@ module Parser =
     [<Literal>]
     let FROM = "from"
 
+    [<Literal>]
+    let ASYNC = "async"
     let indentation = "    "
 
     type Type =
@@ -38,8 +42,14 @@ module Parser =
         {
             Name: string
             Args: Argument list
+            Async: bool
             Type: Type
         }
+        
+    type FromDef = {
+        From: string
+        Items: string list
+    }
         
     type VariableDef =
         {
@@ -70,6 +80,7 @@ module Parser =
     | ClassDef of ClassDef 
     | VariableDef of VariableDef
     | IfDef of IfDef
+    | FromDef of FromDef
     
     type Module = {
         Items: Unit list 
@@ -215,18 +226,32 @@ module Parser =
 
         match line.Split([| '(' |]) with
         | [| name; _ |] ->
-            match lines.[index].Split("->") with
-            | [| _; funPartType |] ->
-                let nameFunc = name
-                                |> trim
-                                |> cutLeft DEF.Length
-                                |> trim
+            let namePartFunc = trim name
+            
+            let isAsync, name =
+                if namePartFunc.StartsWith(ASYNC) then
+                    true, namePartFunc
+                            |> cutLeft ASYNC.Length
+                            |> trim
+                            |> cutLeft DEF.Length
+                            |> trim
+                else
+                    false, namePartFunc
+                            |> trim
+                            |> cutLeft DEF.Length
+                            |> trim
+                            
+            let returnType = 
+                match lines.[index].Split("->") with
+                | [| _; funPartType |] -> parseTypePart(funPartType);
+                | _ -> SimpleType ""
 
-                {
-                    FunctionDef.Name = nameFunc
-                    Args = parseArgs(collected_args)
-                    Type = parseTypePart(funPartType);
-                }, index + 1
+            {
+                FunctionDef.Name = name
+                Async = isAsync
+                Args = parseArgs(collected_args)
+                Type = returnType;
+            }, index + 1
 
     let parseClassDefinition (classHead: string) : string * string list =
         let withoutClass = 
@@ -250,20 +275,52 @@ module Parser =
             let equalitySignIndex = line.IndexOf("=")
             {VariableDef.Name = trim (line.Substring(0, equalitySignIndex)) ; Type = SimpleType ""} , currIndex + 1
 
-    let rec findCloseBracketLine(lines: string[], currIndex: int): int =
-        let line = lines.[currIndex]
-        if line.Contains(")") then
-            currIndex + 1
-        else
-            findCloseBracketLine(lines, currIndex + 1)
+    let rec getAllImportFromMultipleLines(lines: string[], currIndex: int, startIndex: int): string * int =
+        // TODO: Copy pasted from gatherArgsFromMultipleLines. Fix that. 
+        let line =
+            if currIndex = startIndex then
+                lines.[currIndex] |> cutLeft (lines.[currIndex].IndexOf("(") + 1)
+            else
+                lines.[currIndex]
 
-    let parseFrom(lines: string[], currIndex: int): int =
-        let line = lines.[currIndex]
-        let openBracketIndex = line.IndexOf("(")
-        if openBracketIndex > -1 then
-            findCloseBracketLine(lines, currIndex + 1)
+        let cleanLine = cleanLineFromComments line
+
+        let closedBracketIndex = cleanLine.IndexOf(")")
+        if closedBracketIndex > -1 then
+            (cleanLine
+            |> (fun x -> x.Substring(0, closedBracketIndex))
+            |> trim), currIndex
         else
-            currIndex + 1
+             let gathered, index = getAllImportFromMultipleLines(lines, currIndex + 1, startIndex)
+             cleanLine + gathered, index
+
+    let parseFrom(lines: string[], currIndex: int): FromDef * int =
+        let left =
+            lines.[currIndex]
+            |> cleanLineFromComments
+            |> cutLeft FROM.Length
+            |> trim
+
+        let firstWhiteSpace = left.IndexOf(" ")
+        let fromValue = left.Substring(0, firstWhiteSpace)
+        let leftWithoutName =
+            left
+            |> cutLeft firstWhiteSpace
+            |> trim
+            |> cutLeft "import".Length
+            |> trim
+        
+        let openBracketIndex = leftWithoutName.IndexOf("(")
+        let imports, index = 
+            if openBracketIndex > -1 then
+                getAllImportFromMultipleLines(lines, currIndex, currIndex)
+            else
+                leftWithoutName, currIndex
+                
+        {
+            FromDef.From = (trim fromValue)
+            Items = imports.Split(",") |> Seq.toList |> List.map trim
+        }, index + 1
 
     let rec parseElsePart (lines: string[], currIndex: int, currLevel: int) : ElseDef * int =
         if currIndex = lines.Length then
@@ -322,17 +379,19 @@ module Parser =
                 if (not (line.StartsWith (String.replicate currLevel indentation))) then
                     [], currIndex
                 else
-                    if trimmedLine.StartsWith(FROM) then
-                        [], parseFrom(lines, currIndex)
-                    else if trimmedLine.StartsWith(CLASS) then
+                    if trimmedLine.StartsWith(FROM + " ") then
+                        let fromDef, fromIndex = parseFrom(lines, currIndex)
+                        let moduleItems, index = parseUnits(lines, fromIndex, currLevel)
+                        [ Unit.FromDef fromDef ] @ moduleItems, index
+                    else if trimmedLine.StartsWith(CLASS + " ") then
                         let classDef, classIndex = parseClass(lines, currIndex, currLevel)
                         let moduleItems, index = parseUnits(lines, classIndex, currLevel)
                         [ Unit.ClassDef classDef ] @ moduleItems, index
-                    else if trimmedLine.StartsWith(DEF) then
+                    else if trimmedLine.StartsWith(DEF + " ") || trimmedLine.StartsWith(ASYNC + " ") then
                         let func, funcIndex = parseFunc(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
                         [ Unit.FunctionDef func] @ moduleItems, index
-                    else if trimmedLine.StartsWith(IF) then
+                    else if trimmedLine.StartsWith(IF + " ") then
                         let ifDef, funcIndex = parseIf(lines, currIndex, currLevel + 1)
                         let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
                         [ Unit.IfDef ifDef] @ moduleItems, index
