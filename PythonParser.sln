@@ -4,6 +4,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PythonParser", "PythonParse
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PythonParser.Test", "PythonParser.Test\PythonParser.Test.fsproj", "{38D15D48-C40B-4546-AF71-15F73B266E28}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TestParser", "TestParser\TestParser.fsproj", "{99EDD082-A91E-41EC-97F5-A110A8DC4602}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{38D15D48-C40B-4546-AF71-15F73B266E28}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{38D15D48-C40B-4546-AF71-15F73B266E28}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{38D15D48-C40B-4546-AF71-15F73B266E28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99EDD082-A91E-41EC-97F5-A110A8DC4602}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99EDD082-A91E-41EC-97F5-A110A8DC4602}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99EDD082-A91E-41EC-97F5-A110A8DC4602}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99EDD082-A91E-41EC-97F5-A110A8DC4602}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
