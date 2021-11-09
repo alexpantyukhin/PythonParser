@@ -215,18 +215,21 @@ module Parser =
 
         match line.Split([| '(' |]) with
         | [| name; _ |] ->
-            match lines.[index].Split("->") with
-            | [| _; funPartType |] ->
-                let nameFunc = name
-                                |> trim
-                                |> cutLeft DEF.Length
-                                |> trim
+            let nameFunc = name
+                            |> trim
+                            |> cutLeft DEF.Length
+                            |> trim
+                            
+            let returnType = 
+                match lines.[index].Split("->") with
+                | [| _; funPartType |] -> parseTypePart(funPartType);
+                | _ -> SimpleType ""
 
-                {
-                    FunctionDef.Name = nameFunc
-                    Args = parseArgs(collected_args)
-                    Type = parseTypePart(funPartType);
-                }, index + 1
+            {
+                FunctionDef.Name = nameFunc
+                Args = parseArgs(collected_args)
+                Type = returnType;
+            }, index + 1
 
     let parseClassDefinition (classHead: string) : string * string list =
         let withoutClass = 
@@ -322,17 +325,17 @@ module Parser =
                 if (not (line.StartsWith (String.replicate currLevel indentation))) then
                     [], currIndex
                 else
-                    if trimmedLine.StartsWith(FROM) then
+                    if trimmedLine.StartsWith(FROM + " ") then
                         [], parseFrom(lines, currIndex)
-                    else if trimmedLine.StartsWith(CLASS) then
+                    else if trimmedLine.StartsWith(CLASS + " ") then
                         let classDef, classIndex = parseClass(lines, currIndex, currLevel)
                         let moduleItems, index = parseUnits(lines, classIndex, currLevel)
                         [ Unit.ClassDef classDef ] @ moduleItems, index
-                    else if trimmedLine.StartsWith(DEF) then
+                    else if trimmedLine.StartsWith(DEF + " ") then
                         let func, funcIndex = parseFunc(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
                         [ Unit.FunctionDef func] @ moduleItems, index
-                    else if trimmedLine.StartsWith(IF) then
+                    else if trimmedLine.StartsWith(IF + " ") then
                         let ifDef, funcIndex = parseIf(lines, currIndex, currLevel + 1)
                         let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
                         [ Unit.IfDef ifDef] @ moduleItems, index
