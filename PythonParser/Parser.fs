@@ -22,9 +22,15 @@ module Parser =
 
     [<Literal>]
     let FROM = "from"
+    
+    [<Literal>]
+    let IMPORT = "import"
 
     [<Literal>]
     let ASYNC = "async"
+
+    [<Literal>]
+    let NOTATION = "\"\"\""
     let indentation = "    "
 
     type Type =
@@ -50,7 +56,11 @@ module Parser =
         From: string
         Items: string list
     }
-        
+
+    type NotationDef = {
+        Notation: string list
+    }
+
     type VariableDef =
         {
             Name: string
@@ -81,6 +91,7 @@ module Parser =
     | VariableDef of VariableDef
     | IfDef of IfDef
     | FromDef of FromDef
+    | NotationDef of NotationDef
     
     type Module = {
         Items: Unit list 
@@ -200,26 +211,30 @@ module Parser =
             |> trim
             |> parseArgs)
             
-    let rec gatherArgsFromMultipleLines(lines: string[], currIndex: int, startIndex: int) : string * int =
+    let rec findMultipleLineBlock(lines: string[], currIndex: int, startIndex: int, startString: string, endString: string) : (string list) * int =
         let line =
             if currIndex = startIndex then
-                lines.[currIndex] |> cutLeft (lines.[currIndex].IndexOf("(") + 1)
+                lines.[currIndex] |> cutLeft (lines.[currIndex].IndexOf(startString) + 1)
             else
                 lines.[currIndex]
 
         let cleanLine = cleanLineFromComments line
 
-        let closedBracketIndex = cleanLine.IndexOf(")")
+        let closedBracketIndex = cleanLine.IndexOf(endString)
         if closedBracketIndex > -1 then
-            (cleanLine
+            [(cleanLine
             |> (fun x -> x.Substring(0, closedBracketIndex))
-            |> trim), currIndex
+            |> trim)], currIndex
         else
-             let gathered, index = gatherArgsFromMultipleLines(lines, currIndex + 1, startIndex)
-             cleanLine + gathered, index
+             let gathered, index = findMultipleLineBlock(lines, currIndex + 1, startIndex, startString, endString)
+             [cleanLine] @ gathered, index
+
+    let gatherArgsFromMultipleLines(lines: string[], currIndex: int) : string * int =
+        let lines, index = findMultipleLineBlock(lines, currIndex, currIndex, "(", ")")
+        String.Join("", lines), index
 
     let parseFunc (lines: string[], currIndex: int) : FunctionDef * int =
-        let collected_args, index = gatherArgsFromMultipleLines(lines, currIndex, currIndex)
+        let collected_args, index = gatherArgsFromMultipleLines(lines, currIndex)
         let line =
             lines.[currIndex]
             |> cleanLineFromComments
@@ -274,25 +289,14 @@ module Parser =
         | [| _; |] ->
             let equalitySignIndex = line.IndexOf("=")
             {VariableDef.Name = trim (line.Substring(0, equalitySignIndex)) ; Type = SimpleType ""} , currIndex + 1
+            
+    let parseNotation(lines: string[], currIndex: int) : NotationDef * int =
+        let lines, index = findMultipleLineBlock(lines, currIndex, currIndex, NOTATION, NOTATION)
+        {NotationDef.Notation = lines}, index + 1
 
-    let rec getAllImportFromMultipleLines(lines: string[], currIndex: int, startIndex: int): string * int =
-        // TODO: Copy pasted from gatherArgsFromMultipleLines. Fix that. 
-        let line =
-            if currIndex = startIndex then
-                lines.[currIndex] |> cutLeft (lines.[currIndex].IndexOf("(") + 1)
-            else
-                lines.[currIndex]
-
-        let cleanLine = cleanLineFromComments line
-
-        let closedBracketIndex = cleanLine.IndexOf(")")
-        if closedBracketIndex > -1 then
-            (cleanLine
-            |> (fun x -> x.Substring(0, closedBracketIndex))
-            |> trim), currIndex
-        else
-             let gathered, index = getAllImportFromMultipleLines(lines, currIndex + 1, startIndex)
-             cleanLine + gathered, index
+    let rec getAllImportFromMultipleLines(lines: string[], currIndex: int): string * int =
+        let lines, index = findMultipleLineBlock(lines, currIndex, currIndex, "(", ")")
+        String.Join("", lines), index
 
     let parseFrom(lines: string[], currIndex: int): FromDef * int =
         let left =
@@ -307,16 +311,16 @@ module Parser =
             left
             |> cutLeft firstWhiteSpace
             |> trim
-            |> cutLeft "import".Length
+            |> cutLeft IMPORT.Length
             |> trim
         
         let openBracketIndex = leftWithoutName.IndexOf("(")
         let imports, index = 
             if openBracketIndex > -1 then
-                getAllImportFromMultipleLines(lines, currIndex, currIndex)
+                getAllImportFromMultipleLines(lines, currIndex)
             else
                 leftWithoutName, currIndex
-                
+
         {
             FromDef.From = (trim fromValue)
             Items = imports.Split(",") |> Seq.toList |> List.map trim
@@ -380,21 +384,25 @@ module Parser =
                     [], currIndex
                 else
                     if trimmedLine.StartsWith(FROM + " ") then
-                        let fromDef, fromIndex = parseFrom(lines, currIndex)
-                        let moduleItems, index = parseUnits(lines, fromIndex, currLevel)
+                        let fromDef, nextIndex = parseFrom(lines, currIndex)
+                        let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
                         [ Unit.FromDef fromDef ] @ moduleItems, index
                     else if trimmedLine.StartsWith(CLASS + " ") then
-                        let classDef, classIndex = parseClass(lines, currIndex, currLevel)
-                        let moduleItems, index = parseUnits(lines, classIndex, currLevel)
+                        let classDef, nextIndex = parseClass(lines, currIndex, currLevel)
+                        let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
                         [ Unit.ClassDef classDef ] @ moduleItems, index
                     else if trimmedLine.StartsWith(DEF + " ") || trimmedLine.StartsWith(ASYNC + " ") then
-                        let func, funcIndex = parseFunc(lines, currIndex)
-                        let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
+                        let func, nextIndex = parseFunc(lines, currIndex)
+                        let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
                         [ Unit.FunctionDef func] @ moduleItems, index
                     else if trimmedLine.StartsWith(IF + " ") then
-                        let ifDef, funcIndex = parseIf(lines, currIndex, currLevel + 1)
-                        let moduleItems, index = parseUnits(lines, funcIndex, currLevel)
+                        let ifDef, nextIndex = parseIf(lines, currIndex, currLevel + 1)
+                        let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
                         [ Unit.IfDef ifDef] @ moduleItems, index
+                    else if trimmedLine.StartsWith(NOTATION) then
+                        let notationDef, nextIndex = parseNotation(lines, currIndex)
+                        let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
+                        [ Unit.NotationDef notationDef] @ moduleItems, index
                     else
                         let variableDef, nextIndex = parseVariable(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
