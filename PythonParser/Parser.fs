@@ -33,6 +33,10 @@ module Parser =
     let NOTATION = "\"\"\""
     let indentation = "    "
 
+    let openBrackets = ['('; '{'; '[']
+    let closeBrackets = [')'; '}'; ']']
+    let brackets = openBrackets @ closeBrackets
+
     type Type =
     | SimpleType of string
     | OrType of Type list
@@ -280,6 +284,37 @@ module Parser =
         | [| name; inheritList; _ ; _|] -> name, inheritList.Split(",") |> Seq.toList
         | [| name; _ |] -> name, []
         
+    let rec getNextBracketPosition(lines: string[], currIndex: int, currCursor: int) : int * int =
+        let line = lines.[currIndex]
+        if currCursor >= line.Length then
+            getNextBracketPosition(lines, currIndex + 1, 0)
+        else
+            if List.contains line.[currCursor] brackets then
+                currIndex, currCursor
+            else
+                getNextBracketPosition(lines, currIndex, currCursor + 1)
+        
+    let rec parseVariableValue(lines: string[], currIndex: int, currCursor: int, openBracketsNumber: int): int * int =
+        let line = lines.[currIndex]
+        if openBracketsNumber = 0 then
+            let nextOpenBracket = line.IndexOfAny(List.toArray openBrackets, currCursor) 
+            if nextOpenBracket = -1 then
+                if line.EndsWith("\"") || line.EndsWith(",") then
+                    parseVariableValue(lines, currIndex + 1, 0, 0)
+                else
+                    currIndex, currCursor
+            else
+                if List.contains line.[nextOpenBracket] openBrackets then
+                    parseVariableValue(lines, currIndex, nextOpenBracket + 1, openBracketsNumber + 1)
+                else
+                    currIndex, nextOpenBracket
+        else
+            let nextBracketIndex, nextBracketCursor = getNextBracketPosition(lines, currIndex, currCursor)
+            if List.contains lines.[nextBracketIndex].[nextBracketCursor] openBrackets then
+                parseVariableValue(lines, nextBracketIndex, nextBracketCursor + 1, openBracketsNumber + 1)
+            else
+                parseVariableValue(lines, nextBracketIndex, nextBracketCursor + 1, openBracketsNumber - 1)
+
     let parseVariable (lines: string[], currIndex: int) : VariableDef * int =
         let line =
             lines.[currIndex]
@@ -288,6 +323,7 @@ module Parser =
         | [| name; typeStr  |] -> {VariableDef.Name = trim name; Type = parseType typeStr} , currIndex + 1
         | [| _; |] ->
             let equalitySignIndex = line.IndexOf("=")
+            let currIndex, _ = parseVariableValue(lines, currIndex, equalitySignIndex + 1, 0)
             {VariableDef.Name = trim (line.Substring(0, equalitySignIndex)) ; Type = SimpleType ""} , currIndex + 1
             
     let parseNotation(lines: string[], currIndex: int) : NotationDef * int =
