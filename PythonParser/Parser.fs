@@ -260,17 +260,21 @@ module Parser =
                             |> cutLeft DEF.Length
                             |> trim
                             
-            let returnType = 
+            let returnType, resIndex =
                 match lines.[index].Split("->") with
-                | [| _; funPartType |] -> parseTypePart(funPartType);
-                | _ -> SimpleType ""
+                | [| _; funPartType |] ->
+                    let lines, rindex = findMultipleLineBlock(lines, index, index, ">", ":")
+                    let joinedType = String.Join("", lines)
+
+                    parseTypePart(joinedType), rindex
+                | _ -> SimpleType "", index
 
             {
                 FunctionDef.Name = name
                 Async = isAsync
                 Args = parseArgs(collected_args)
                 Type = returnType;
-            }, index + 1
+            }, resIndex + 1
 
     let parseClassDefinition (classHead: string) : string * string list =
         let withoutClass = 
