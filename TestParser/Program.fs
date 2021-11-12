@@ -5,32 +5,53 @@
 open System
 open System.IO
 open PythonParser
+open Types
 
-let wrongParsed (filesPaths: string list): (string * Exception) list =
+type parsedFiles = (string * Module option * Exception option) list
+
+let parseFiles(filesPaths: string list) : parsedFiles = 
     filesPaths
     |> List.map (fun x ->
-        let source = (File.ReadAllText x)
         try
-            (Parser.parseModule source) |> ignore
-            x, None
+            let source = (File.ReadAllText x)
+            let parsedModule = Parser.parseModule source
+            x, Some(parsedModule), None
         with
-        | :? Exception as ex -> x, Some(ex)
+        | :? Exception as ex -> x, None, Some(ex)
         )
-    |> List.filter (fun (_, y) ->
-                match y with
-                | Some (y) -> true
+
+let validFiles (parsedFiles) : (string * Module) list = 
+    parsedFiles
+    |> List.filter (fun (_, m, _) ->
+                match m with
+                | Some (m) -> true
                 | _ -> false)
-    |> List.map (fun (x, y) ->
-                match y with
-                | Some(y) -> (x, y))
+    |> List.map (fun (f, m, _) ->
+                match m with
+                | Some(m) -> (f, m))
+
+let wrongFiles (parsedFiles) : (string * Exception) list = 
+    parsedFiles
+    |> List.filter (fun (_, _, e) ->
+                match e with
+                | Some (e) -> true
+                | _ -> false)
+    |> List.map (fun (f, _, e) ->
+                match e with
+                | Some(e) -> (f, e))
 
 [<EntryPoint>]
 let main argv =
     let sourcePath = ".\\typeshed\\stdlib"
     let files =
-     Directory.GetFiles(sourcePath, "*.pyi", SearchOption.AllDirectories)
-     |> Seq.toList
-    let wrongParsedFiles = wrongParsed(files)
-    printfn "All: %s" (files.Length.ToString())
-    printfn "Wrong: %s" (wrongParsedFiles.Length.ToString())
+        Directory.GetFiles(sourcePath, "*.pyi", SearchOption.AllDirectories)
+        |> Seq.toList
+    
+    let parsedFilesList = parseFiles files
+    let wrongFilesList = wrongFiles parsedFilesList
+    let validFilesList = validFiles parsedFilesList
+
+    printfn "All: %d" (parsedFilesList.Length)
+    printfn "Valid: %d" (validFilesList.Length)
+    printfn "Wrong: %d" (wrongFilesList.Length)
     0 // return an integer exit code
