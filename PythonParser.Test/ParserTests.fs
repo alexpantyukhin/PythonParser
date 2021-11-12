@@ -2,6 +2,7 @@ module PythonParser.Test
 
 open NUnit.Framework
 open Parser
+open Types
 
 [<SetUp>]
 let Setup () =

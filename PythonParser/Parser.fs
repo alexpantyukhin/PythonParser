@@ -2,6 +2,7 @@
 namespace PythonParser
 
 open System
+open Types
 
 module Parser =
 
@@ -37,70 +38,6 @@ module Parser =
     let closeBrackets = [')'; '}'; ']']
     let brackets = openBrackets @ closeBrackets
 
-    type Type =
-    | SimpleType of string
-    | OrType of Type list
-    | CompositionType of string * Type list
-
-    type Argument = 
-        {
-            Name: string
-            Type: Type
-        }
-
-    type FunctionDef =
-        {
-            Name: string
-            Args: Argument list
-            Async: bool
-            Type: Type
-        }
-        
-    type FromDef = {
-        From: string
-        Items: string list
-    }
-
-    type NotationDef = {
-        Notation: string list
-    }
-
-    type VariableDef =
-        {
-            Name: string
-            Type: Type
-        }
-
-    type IfDef = {
-        Condition: string
-        Then: ThenDef
-        Else: ElseDef
-    }
-
-    and ThenDef = Unit list
-
-    and ElseDef =
-    | IfDef of IfDef
-    | Items of Unit list
-
-    and ClassDef = {
-        Name: string
-        Inherits: string list
-        Items: Unit list
-    }
-
-    and Unit =
-    | FunctionDef of FunctionDef  
-    | ClassDef of ClassDef 
-    | VariableDef of VariableDef
-    | IfDef of IfDef
-    | FromDef of FromDef
-    | NotationDef of NotationDef
-    
-    type Module = {
-        Items: Unit list 
-    } 
-
     let trim (str: string) =
         str.Trim()
 
@@ -109,6 +46,9 @@ module Parser =
 
     let isEmpty (str: string) =
         str.Length = 0
+
+    let cutRightFrom (from: int) (str: string) =
+        str.Substring(0, from)
 
     let cleanLineFromComments (line : string) : string =
         // Simple way for now
@@ -147,7 +87,10 @@ module Parser =
         if orSeparatorPosition = trimmedTypeString .Length then
             let leftBracket = trimmedTypeString .IndexOf("[")
             if leftBracket > -1 then
-                let name = trim (trimmedTypeString.Substring(0, leftBracket))
+                let name = 
+                    trimmedTypeString
+                    |> cutRightFrom leftBracket
+                    |> trim
                 let innerTypesStr = trimmedTypeString.Substring(leftBracket + 1, trimmedTypeString.Length - leftBracket - 2)
                 let innerTypesMap =
                     splitTypesByComma(innerTypesStr, 0, 0, 0)
@@ -161,7 +104,7 @@ module Parser =
             let headType =
                 trimmedTypeString
                 |> trim
-                |> (fun x -> x.Substring(0, orSeparatorPosition))
+                |> cutRightFrom orSeparatorPosition
                 |> parseType
 
             let tailType =
@@ -205,7 +148,7 @@ module Parser =
         | position ->
             [
             argString
-            |> (fun x -> x.Substring(0, position))
+            |> cutRightFrom position
             |> trim
             |> parseArg]
             @
@@ -227,7 +170,7 @@ module Parser =
         let closedBracketIndex = cleanLine.IndexOf(endString)
         if closedBracketIndex > -1 then
             [(cleanLine
-            |> (fun x -> x.Substring(0, closedBracketIndex))
+            |> cutRightFrom closedBracketIndex
             |> trim)], currIndex
         else
              let gathered, index = findMultipleLineBlock(lines, currIndex + 1, startIndex, startString, endString)
@@ -328,7 +271,7 @@ module Parser =
         | [| _; |] ->
             let equalitySignIndex = line.IndexOf("=")
             let currIndex, _ = parseVariableValue(lines, currIndex, equalitySignIndex + 1, 0)
-            {VariableDef.Name = trim (line.Substring(0, equalitySignIndex)) ; Type = SimpleType ""} , currIndex + 1
+            {VariableDef.Name = (line |> cutRightFrom equalitySignIndex |> trim) ; Type = SimpleType ""} , currIndex + 1
             
     let parseNotation(lines: string[], currIndex: int) : NotationDef * int =
         let lines, index = findMultipleLineBlock(lines, currIndex, currIndex, NOTATION, NOTATION)
@@ -346,7 +289,7 @@ module Parser =
             |> trim
 
         let firstWhiteSpace = left.IndexOf(" ")
-        let fromValue = left.Substring(0, firstWhiteSpace)
+        let fromValue = cutRightFrom firstWhiteSpace left
         let leftWithoutName =
             left
             |> cutLeft firstWhiteSpace

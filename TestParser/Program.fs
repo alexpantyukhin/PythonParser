@@ -32,5 +32,5 @@ let main argv =
      |> Seq.toList
     let wrongParsedFiles = wrongParsed(files)
     printfn "All: %s" (files.Length.ToString())
-    printfn "Parsed: %s" (wrongParsedFiles.Length.ToString())
+    printfn "Wrong: %s" (wrongParsedFiles.Length.ToString())
     0 // return an integer exit code
