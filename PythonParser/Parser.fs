@@ -56,7 +56,7 @@ module Parser =
         if commentSymbol = -1 then
             line
         else
-            line.Substring(0, commentSymbol)
+            cutRightFrom commentSymbol line
     
     let rec firstOrSeparatorPosition(str: string, currIndex: int, bracketNumber: int): int = 
         if currIndex >= str.Length then
@@ -231,16 +231,20 @@ module Parser =
         | [| name; inheritList; _ ; _|] -> name, inheritList.Split(",") |> Seq.toList
         | [| name; _ |] -> name, []
         
-    let rec getNextBracketPosition(lines: string[], currIndex: int, currCursor: int) : int * int =
+    let rec getNextBracketPosition(lines: string[], currIndex: int, currCursor: int, isString: bool) : int * int =
         let line = lines.[currIndex]
         if currCursor >= line.Length then
-            getNextBracketPosition(lines, currIndex + 1, 0)
+            getNextBracketPosition(lines, currIndex + 1, 0, isString)
         else
-            if List.contains line.[currCursor] brackets then
-                currIndex, currCursor
+            let char = line.[currCursor]
+            if char = '\"' then
+                getNextBracketPosition(lines, currIndex, currCursor + 1, not isString)
             else
-                getNextBracketPosition(lines, currIndex, currCursor + 1)
-        
+                if (not isString) && List.contains char brackets then
+                    currIndex, currCursor
+                else
+                    getNextBracketPosition(lines, currIndex, currCursor + 1, isString)
+            
     let rec parseVariableValue(lines: string[], currIndex: int, currCursor: int, openBracketsNumber: int): int * int =
         let line = lines.[currIndex]
         if openBracketsNumber = 0 then
@@ -256,7 +260,7 @@ module Parser =
                 else
                     currIndex, nextOpenBracket
         else
-            let nextBracketIndex, nextBracketCursor = getNextBracketPosition(lines, currIndex, currCursor)
+            let nextBracketIndex, nextBracketCursor = getNextBracketPosition(lines, currIndex, currCursor, false)
             if List.contains lines.[nextBracketIndex].[nextBracketCursor] openBrackets then
                 parseVariableValue(lines, nextBracketIndex, nextBracketCursor + 1, openBracketsNumber + 1)
             else
@@ -369,27 +373,27 @@ module Parser =
                     if trimmedLine.StartsWith(FROM + " ") then
                         let fromDef, nextIndex = parseFrom(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
-                        [ Unit.FromDef fromDef ] @ moduleItems, index
+                        [ FromDef fromDef ] @ moduleItems, index
                     else if trimmedLine.StartsWith(CLASS + " ") then
                         let classDef, nextIndex = parseClass(lines, currIndex, currLevel)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
-                        [ Unit.ClassDef classDef ] @ moduleItems, index
+                        [ ClassDef classDef ] @ moduleItems, index
                     else if trimmedLine.StartsWith(DEF + " ") || trimmedLine.StartsWith(ASYNC + " ") then
                         let func, nextIndex = parseFunc(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
-                        [ Unit.FunctionDef func] @ moduleItems, index
+                        [ FunctionDef func] @ moduleItems, index
                     else if trimmedLine.StartsWith(IF + " ") then
                         let ifDef, nextIndex = parseIf(lines, currIndex, currLevel + 1)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
-                        [ Unit.IfDef ifDef] @ moduleItems, index
+                        [ IfDef ifDef] @ moduleItems, index
                     else if trimmedLine.StartsWith(NOTATION) then
                         let notationDef, nextIndex = parseNotation(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
-                        [ Unit.NotationDef notationDef] @ moduleItems, index
+                        [ NotationDef notationDef] @ moduleItems, index
                     else
                         let variableDef, nextIndex = parseVariable(lines, currIndex)
                         let moduleItems, index = parseUnits(lines, nextIndex, currLevel)
-                        [ Unit.VariableDef variableDef ] @ moduleItems, index
+                        [ VariableDef variableDef ] @ moduleItems, index
         
     let parseModule (source: string) : Module =
         let lines = source.Split("\n")
